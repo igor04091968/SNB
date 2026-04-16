@@ -1,0 +1,7 @@
+*
+!.gitignore
+!README.md
+!snb-locations-feed/
+!snb-locations-feed/**
+snb-locations-feed/**/__pycache__/
+snb-locations-feed/**/*.pyc

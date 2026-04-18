@@ -1,4 +1,81 @@
-<locations bank="Северный Народный Банк" generated_at="2026-04-16T10:20:23+00:00">
+<locations bank="Северный Народный Банк" generated_at="2026-04-18T16:50:44+00:00">
+  <location>
+    <location_type>atm</location_type>
+    <city>Ухта</city>
+    <address>Пр-т Ленина, д. 1, 1 этаж, офис филиала Банка</address>
+    <latitude>63.5617</latitude>
+    <longitude>53.6844</longitude>
+    <hours>Ежедневно с 8-00 до 20-00 часов</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>atm</location_type>
+    <city>Ухта</city>
+    <address>Пр-т Ленина, д. 22, опт-маркет «Союз»</address>
+    <latitude>63.566</latitude>
+    <longitude>53.6698</longitude>
+    <hours>Ежедневно с 8-00 до 22-00 часов</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>atm</location_type>
+    <city>Ухта</city>
+    <address>пр-т Ленина, д. 57, Ателье "Молодежная мода"</address>
+    <latitude>63.5696</latitude>
+    <longitude>53.653</longitude>
+    <hours>с 10-00 до 21-00 ежедневно</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>atm</location_type>
+    <city>Ухта</city>
+    <address>ул. Бушуева, д. 16, супермаркет «БЕРЁЗКА»</address>
+    <latitude>63.5658</latitude>
+    <longitude>53.6986</longitude>
+    <hours>с 8-00 до 22-00</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>atm</location_type>
+    <city>Ухта</city>
+    <address>Пионергорский пр-д, д. 3, ТЦ "Бенилюкс", магазин «Магнит»</address>
+    <latitude>63.5706</latitude>
+    <longitude>53.6753</longitude>
+    <hours>с 9-00 до 21-00</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>atm</location_type>
+    <city>Ухта</city>
+    <address>пр-т Ленина, д. 4, гостиница «Тиман»</address>
+    <latitude>63.5629</latitude>
+    <longitude>53.6806</longitude>
+    <hours>круглосуточно</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>office</location_type>
+    <city>Ухта</city>
+    <address>пр.Ленина, 1</address>
+    <latitude>63.5617</latitude>
+    <longitude>53.6836</longitude>
+    <hours>в будние дни с 10 до 18-30, в субботу с 10 до 13-30. Выходной: воскресенье</hours>
+    <phone>(8216) 74-72-10</phone>
+    <source_url>https://www.sevnb.ru/offices</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
   <location>
     <location_type>atm</location_type>
     <city>Сыктывкар</city>
@@ -8,7 +85,7 @@
     <hours>Круглосуточно</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -19,7 +96,7 @@
     <hours>Ежедневно с 09-00 до 19-00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -30,7 +107,7 @@
     <hours>ПН - СБ: с 10 до 20 часов, ВС:с 10 до 19 часов</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -41,7 +118,7 @@
     <hours>Ежедневно с 8 до 22.00 часов</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -52,7 +129,7 @@
     <hours>Ежедневно с 9 до 20 часов, санитарный день: каждый второй понедельник месяца, до 15 часов</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -63,7 +140,7 @@
     <hours>Ежедневно с 9.00 до 20.00 часов</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -74,7 +151,7 @@
     <hours>Круглосуточно</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -85,7 +162,7 @@
     <hours>с 10-00 до 19-00 по будням, в субботу с 10-00 до 18-00, в воскресенье с 10-00 до 17-00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -96,7 +173,7 @@
     <hours>круглосуточно</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -107,7 +184,7 @@
     <hours>с 8-00 до 22-00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -118,7 +195,7 @@
     <hours>с 9:00-20:00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -129,7 +206,7 @@
     <hours>понедельник-пятница с 10:00 до 19:00 суббота с 10:00 до 18:00 воскресенье с 10:00 до 17:00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -140,7 +217,7 @@
     <hours>круглосуточно</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -151,7 +228,7 @@
     <hours>с 8-00 до 22-00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -162,19 +239,19 @@
     <hours>Режим работы: с 8:00 до 22:00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
     <city>Сыктывкар</city>
-    <address>г. Сыктывкар, пр-т Бумажников, 45 (ТЦ "Меркурий")</address>
+    <address>пр-т Бумажников, 45 (ТЦ "Меркурий")</address>
     <latitude>61.7855</latitude>
     <longitude>50.7464</longitude>
     <hours>пн.-пт с 10.00 до 19.00,
 сб, вскр. с 10.00 до 17.00 часов</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -185,7 +262,7 @@
     <hours>Ежедневно с 08.00 до 22.00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>office</location_type>
@@ -204,7 +281,7 @@ c 10.00 до 15.00, без перерыва
 Выходной: суббота, воскресенье</hours>
     <phone>(8212) 40-97-26, консультации по вкладам,переводам, приему платежей (8212) 40-97-10 - Управление по работе с клиентами (будние дни с 8:30 до 16:45, перерыв на обед с 12:30 до 13:30)</phone>
     <source_url>https://www.sevnb.ru/offices</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>office</location_type>
@@ -220,7 +297,7 @@ c 10.00 до 15.00, без перерыва
 Выходной: суббота, воскресенье</hours>
     <phone>(8212) 31-07-50, консультации по вкладам,переводам, приему платежей (8212) 40-97-10 - Управление по работе с клиентами (будние дни с 8:30 до 16:45, перерыв на обед с 12:30 до 13:30)</phone>
     <source_url>https://www.sevnb.ru/offices</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>office</location_type>
@@ -236,129 +313,7 @@ c 10.00 до 15.00, без перерыва
 Выходной:суббота, воскресенье</hours>
     <phone>(8212) 63-75-87, консультации по вкладам,переводам, приему платежей - (8212) 40-97-10 - Управление по работе с клиентами (будние дни с 8:30 до 16:45, перерыв на обед с 12:30 до 13:30)</phone>
     <source_url>https://www.sevnb.ru/offices</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Ухта</city>
-    <address>Пр-т Ленина, д. 1, 1 этаж, офис филиала Банка</address>
-    <latitude>63.5617</latitude>
-    <longitude>53.6844</longitude>
-    <hours>Ежедневно с 8-00 до 20-00 часов</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Ухта</city>
-    <address>Пр-т Ленина, д. 22, опт-маркет «Союз»</address>
-    <latitude>63.566</latitude>
-    <longitude>53.6698</longitude>
-    <hours>Ежедневно с 8-00 до 22-00 часов</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Ухта</city>
-    <address>пр-т Ленина, д. 57, Ателье "Молодежная мода"</address>
-    <latitude>63.5696</latitude>
-    <longitude>53.653</longitude>
-    <hours>с 10-00 до 21-00 ежедневно</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Ухта</city>
-    <address>ул. Бушуева, д. 16, супермаркет «БЕРЁЗКА»</address>
-    <latitude>63.5658</latitude>
-    <longitude>53.6986</longitude>
-    <hours>с 8-00 до 22-00</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Ухта</city>
-    <address>Пионергорский пр-д, д. 3, ТЦ "Бенилюкс", магазин «Магнит»</address>
-    <latitude>63.5706</latitude>
-    <longitude>53.6753</longitude>
-    <hours>с 9-00 до 21-00</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Ухта</city>
-    <address>пр-т Ленина, д. 4, гостиница «Тиман»</address>
-    <latitude>63.5629</latitude>
-    <longitude>53.6806</longitude>
-    <hours>круглосуточно</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>office</location_type>
-    <city>Ухта</city>
-    <address>пр.Ленина, 1</address>
-    <latitude>63.5617</latitude>
-    <longitude>53.6836</longitude>
-    <hours>в будние дни с 10 до 18-30, в субботу с 10 до 13-30. Выходной: воскресенье</hours>
-    <phone>(8216) 74-72-10</phone>
-    <source_url>https://www.sevnb.ru/offices</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Сосногорск</city>
-    <address>ул. Горького, д.20 (магазин "Пятёрочка")</address>
-    <latitude>63.6015</latitude>
-    <longitude>53.873</longitude>
-    <hours>Ежедневно с 08-00 до 22-00</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Сосногорск</city>
-    <address>ул. Орджоникидзе, д.11: Магазин «МАГНИТ»</address>
-    <latitude>63.5867</latitude>
-    <longitude>53.9368</longitude>
-    <hours>С 9-00 до 21-00 ежедневно</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>atm</location_type>
-    <city>Сосногорск</city>
-    <address>6-ой микрорайон, 18/2. Доп. Офис №1/2 «СНБ» (АО)</address>
-    <latitude>63.5895</latitude>
-    <longitude>53.9161</longitude>
-    <hours>С 10-00 до 18-00 в будние дни, с 10-00 до 14-00 в сб</hours>
-    <phone />
-    <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
-  </location>
-  <location>
-    <location_type>office</location_type>
-    <city>Сосногорск</city>
-    <address>6-ой микрорайон, 18/2. Доп. Офис №1/2 «СНБ» (АО)</address>
-    <latitude>63.59</latitude>
-    <longitude>53.9111</longitude>
-    <hours>по будням с 10:00 до 18:00 перерыв с 13-00 до 14-00, в субботу с 10:00 до 14:00
-выходной: воскресенье</hours>
-    <phone>(82149) 5-35-58</phone>
-    <source_url>https://www.sevnb.ru/offices</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -370,7 +325,7 @@ c 10.00 до 15.00, без перерыва
 воскресенье с 10:00 до 18:00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -381,7 +336,7 @@ c 10.00 до 15.00, без перерыва
     <hours>Круглосуточно</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -392,7 +347,7 @@ c 10.00 до 15.00, без перерыва
     <hours>с 08:00 до 22:00</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>office</location_type>
@@ -406,7 +361,7 @@ c 10.00 до 15.00, без перерыва
 выходной: суббота, воскресенье</hours>
     <phone>(82144) 4-55-62</phone>
     <source_url>https://www.sevnb.ru/offices</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>atm</location_type>
@@ -417,7 +372,7 @@ c 10.00 до 15.00, без перерыва
     <hours>с 09.00-19.00, суббота и воскресенье - выходные</hours>
     <phone />
     <source_url>https://www.sevnb.ru/atms</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
   <location>
     <location_type>office</location_type>
@@ -432,6 +387,51 @@ c 10.00 до 15.00, без перерыва
 Обслуживания по системе «Золотая Корона» понедельник-пятница с 9.30 до 12.30</hours>
     <phone>(495) 694-46-10 (499) 272-69-72</phone>
     <source_url>https://www.sevnb.ru/offices</source_url>
-    <fetched_at>2026-04-16T10:20:13+00:00</fetched_at>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>atm</location_type>
+    <city>Сосногорск</city>
+    <address>ул. Горького, д.20 (магазин "Пятёрочка")</address>
+    <latitude>63.6015</latitude>
+    <longitude>53.873</longitude>
+    <hours>Ежедневно с 08-00 до 22-00</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>atm</location_type>
+    <city>Сосногорск</city>
+    <address>ул. Орджоникидзе, д.11: Магазин «МАГНИТ»</address>
+    <latitude>63.5867</latitude>
+    <longitude>53.9368</longitude>
+    <hours>С 9-00 до 21-00 ежедневно</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>atm</location_type>
+    <city>Сосногорск</city>
+    <address>6-ой микрорайон, 18/2. Доп. Офис №1/2 «СНБ» (АО)</address>
+    <latitude>63.5895</latitude>
+    <longitude>53.9161</longitude>
+    <hours>С 10-00 до 18-00 в будние дни, с 10-00 до 14-00 в сб</hours>
+    <phone />
+    <source_url>https://www.sevnb.ru/atms</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
+  </location>
+  <location>
+    <location_type>office</location_type>
+    <city>Сосногорск</city>
+    <address>6-ой микрорайон, 18/2. Доп. Офис №1/2 «СНБ» (АО)</address>
+    <latitude>63.59</latitude>
+    <longitude>53.9111</longitude>
+    <hours>по будням с 10:00 до 18:00 перерыв с 13-00 до 14-00, в субботу с 10:00 до 14:00
+выходной: воскресенье</hours>
+    <phone>(82149) 5-35-58</phone>
+    <source_url>https://www.sevnb.ru/offices</source_url>
+    <fetched_at>2026-04-18T16:50:40+00:00</fetched_at>
   </location>
 </locations>

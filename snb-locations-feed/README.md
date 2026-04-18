@@ -12,7 +12,7 @@
 ## Запуск
 
 ```bash
-cd /home/igor/SNB/snb-locations-feed
+cd snb-locations-feed
 python3 feed_builder.py
 ```
 

@@ -4,21 +4,30 @@ from __future__ import annotations
 import argparse
 import csv
 import html
+import io
 import json
 import re
 import sys
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable
 
-
 BASE_URL = "https://www.sevnb.ru"
 CITIES = ["Сыктывкар", "Ухта", "Сосногорск", "Усинск", "Москва"]
 USER_AGENT = "SNBLocationsFeed/1.0 (+https://www.sevnb.ru)"
+
+# Pre-compiled regex patterns for better performance
+_HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
+_HTML_BR_PATTERN = re.compile(r"<br\s*/?>", re.IGNORECASE)
+_HTML_BOLD_PATTERN = re.compile(r"</?(?:strong|b)>", re.IGNORECASE)
+_WHITESPACE_PATTERN = re.compile(r"\s+")
+_COMMA_SPACE_PATTERN = re.compile(r"\s+,")
+_DOT_SPACE_PATTERN = re.compile(r"\s+\.")
 
 
 @dataclass(slots=True)
@@ -50,54 +59,63 @@ def strip_html(raw: str | None) -> str:
     if not raw:
         return ""
     text = html.unescape(raw)
-    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</?(strong|b)>", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"<[^>]+>", " ", text)
+    text = _HTML_BR_PATTERN.sub("\n", text)
+    text = _HTML_BOLD_PATTERN.sub("", text)
+    text = _HTML_TAG_PATTERN.sub(" ", text)
     text = text.replace("\r", "\n")
-    lines = [re.sub(r"\s+", " ", part).strip(" .") for part in text.split("\n")]
-    lines = [line for line in lines if line]
-    return "\n".join(lines)
+    lines = [_WHITESPACE_PATTERN.sub(" ", part).strip(" .") for part in text.split("\n")]
+    return "\n".join(filter(None, lines))
 
 
 def normalize_address(raw: str) -> str:
     value = strip_html(raw)
-    value = re.sub(r"\s+,", ",", value)
-    value = re.sub(r"\s+\.", ".", value)
+    value = _COMMA_SPACE_PATTERN.sub(",", value)
+    value = _DOT_SPACE_PATTERN.sub(".", value)
     return value.strip()
 
 
 def normalize_phone(raw: str | None) -> str:
     value = strip_html(raw)
-    value = re.sub(r"\s+", " ", value)
+    value = _WHITESPACE_PATTERN.sub(" ", value)
     return value.strip()
 
 
 def build_records(location_type: str, city: str, payload: list[dict], fetched_at: str) -> list[LocationRecord]:
     source_page = f"{BASE_URL}/{'atms' if location_type == 'atm' else 'offices'}"
-    records: list[LocationRecord] = []
-    for item in payload:
-        records.append(
-            LocationRecord(
-                location_type=location_type,
-                city=city,
-                address=normalize_address(str(item.get("address", ""))),
-                latitude=float(item["lat"]),
-                longitude=float(item["lon"]),
-                hours=strip_html(str(item.get("graf_rab", ""))),
-                phone=normalize_phone(item.get("phone")),
-                source_url=source_page,
-                fetched_at=fetched_at,
-            )
+    return [
+        LocationRecord(
+            location_type=location_type,
+            city=city,
+            address=normalize_address(str(item.get("address", ""))),
+            latitude=float(item["lat"]),
+            longitude=float(item["lon"]),
+            hours=strip_html(str(item.get("graf_rab", ""))),
+            phone=normalize_phone(item.get("phone")),
+            source_url=source_page,
+            fetched_at=fetched_at,
         )
+        for item in payload
+    ]
+
+
+def _fetch_city_data(city: str, fetched_at: str) -> list[LocationRecord]:
+    """Fetch ATM and office data for a single city."""
+    records = []
+    records.extend(build_records("atm", city, fetch_json("searchcity/json", city), fetched_at))
+    records.extend(build_records("office", city, fetch_json("searchoffices/json", city), fetched_at))
     return records
 
 
 def fetch_all() -> list[LocationRecord]:
     fetched_at = datetime.now(UTC).replace(microsecond=0).isoformat()
     all_records: list[LocationRecord] = []
-    for city in CITIES:
-        all_records.extend(build_records("atm", city, fetch_json("searchcity/json", city), fetched_at))
-        all_records.extend(build_records("office", city, fetch_json("searchoffices/json", city), fetched_at))
+    
+    # Use ThreadPoolExecutor to fetch data for multiple cities concurrently
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(_fetch_city_data, city, fetched_at): city for city in CITIES}
+        for future in as_completed(futures):
+            all_records.extend(future.result())
+    
     return all_records
 
 
@@ -118,9 +136,7 @@ def records_to_csv_text(records: Iterable[LocationRecord]) -> str:
         "source_url",
         "fetched_at",
     ]
-    from io import StringIO
-
-    buffer = StringIO()
+    buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=headers)
     writer.writeheader()
     for record in records:
@@ -141,9 +157,14 @@ def records_to_xml(records: Iterable[LocationRecord]) -> str:
 
 def write_outputs(records: list[LocationRecord], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "sevnb_locations.json").write_text(records_to_json(records), encoding="utf-8")
-    (output_dir / "sevnb_locations.csv").write_text(records_to_csv_text(records), encoding="utf-8")
-    (output_dir / "sevnb_locations.xml").write_text(records_to_xml(records), encoding="utf-8")
+    
+    json_content = records_to_json(records)
+    csv_content = records_to_csv_text(records)
+    xml_content = records_to_xml(records)
+    
+    (output_dir / "sevnb_locations.json").write_text(json_content, encoding="utf-8")
+    (output_dir / "sevnb_locations.csv").write_text(csv_content, encoding="utf-8")
+    (output_dir / "sevnb_locations.xml").write_text(xml_content, encoding="utf-8")
 
     summary = {
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),

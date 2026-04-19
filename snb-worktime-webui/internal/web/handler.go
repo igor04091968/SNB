@@ -3,19 +3,28 @@ package web
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"snb-worktime-webui/internal/linuxaudit"
 	"snb-worktime-webui/internal/model"
 	"snb-worktime-webui/internal/parser"
+	"snb-worktime-webui/internal/serverstore"
 	"snb-worktime-webui/internal/worktime"
 )
 
 //go:embed static
 var webFiles embed.FS
+
+type App struct {
+	store *serverstore.Store
+}
 
 type analyzeRequest struct {
 	SnapshotsText       string `json:"snapshots_text"`
@@ -27,9 +36,13 @@ type analyzeRequest struct {
 func NewHandler() http.Handler {
 	mux := http.NewServeMux()
 	staticFiles := mustSubFS(webFiles, "static")
+	app := &App{store: serverstore.New(defaultServerStorePath())}
+
 	mux.Handle("/", http.FileServer(http.FS(staticFiles)))
 	mux.HandleFunc("/api/health", handleHealth)
-	mux.HandleFunc("/api/analyze", handleAnalyze)
+	mux.HandleFunc("/api/analyze", app.handleAnalyze)
+	mux.HandleFunc("/api/linux-servers", app.handleLinuxServers)
+	mux.HandleFunc("/api/linux-audit", app.handleLinuxAudit)
 	return withJSONDefaults(mux)
 }
 
@@ -37,7 +50,7 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-func handleAnalyze(w http.ResponseWriter, r *http.Request) {
+func (app *App) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -77,6 +90,106 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		Windows:   len(windows),
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (app *App) handleLinuxServers(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		servers, err := app.store.List()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"servers": servers})
+	case http.MethodPost:
+		var server model.LinuxServer
+		if err := json.NewDecoder(io.LimitReader(r.Body, 2*1024*1024)).Decode(&server); err != nil {
+			http.Error(w, "invalid json body", http.StatusBadRequest)
+			return
+		}
+		saved, err := app.store.Upsert(server)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
+	case http.MethodDelete:
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if id == "" {
+			http.Error(w, "id is required", http.StatusBadRequest)
+			return
+		}
+		if err := app.store.Delete(id); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (app *App) handleLinuxAudit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.LinuxAuditRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 2*1024*1024)).Decode(&req); err != nil {
+		http.Error(w, "invalid json body", http.StatusBadRequest)
+		return
+	}
+
+	servers, err := app.store.ByIDs(req.ServerIDs)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if len(servers) == 0 {
+		http.Error(w, "no Linux servers selected", http.StatusBadRequest)
+		return
+	}
+
+	since, until, err := parseAuditWindow(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, linuxaudit.Audit(servers, since, until))
+}
+
+func parseAuditWindow(req model.LinuxAuditRequest) (time.Time, time.Time, error) {
+	until := time.Now().UTC()
+	if strings.TrimSpace(req.Until) != "" {
+		parsed, err := time.Parse(time.RFC3339, req.Until)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		until = parsed.UTC()
+	}
+
+	since := until.Add(-24 * time.Hour)
+	if strings.TrimSpace(req.Since) != "" {
+		parsed, err := time.Parse(time.RFC3339, req.Since)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		since = parsed.UTC()
+	}
+
+	if !until.After(since) {
+		return time.Time{}, time.Time{}, fmt.Errorf("until must be after since")
+	}
+	return since, until, nil
+}
+
+func defaultServerStorePath() string {
+	if value := strings.TrimSpace(os.Getenv("WORKTIME_SERVER_STORE")); value != "" {
+		return value
+	}
+	return filepath.Join("state", "linux_servers.json")
 }
 
 func withJSONDefaults(next http.Handler) http.Handler {

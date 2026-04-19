@@ -61,3 +61,69 @@ type AnalyzeResponse struct {
 	Snapshots int       `json:"snapshots"`
 	Windows   int       `json:"windows"`
 }
+
+type LinuxServer struct {
+	ID                   string    `json:"id"`
+	Name                 string    `json:"name"`
+	Host                 string    `json:"host"`
+	Port                 int       `json:"port"`
+	Username             string    `json:"username"`
+	Password             string    `json:"password,omitempty"`
+	PrivateKeyPEM        string    `json:"private_key_pem,omitempty"`
+	PrivateKeyPassphrase string    `json:"private_key_passphrase,omitempty"`
+	Notes                string    `json:"notes,omitempty"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+type LinuxAuditRequest struct {
+	ServerIDs []string `json:"server_ids"`
+	Since     string   `json:"since"`
+	Until     string   `json:"until"`
+}
+
+type LinuxAuditRow struct {
+	Server         string `json:"server"`
+	User           string `json:"user"`
+	SessionMinutes int64  `json:"session_minutes"`
+	SessionHuman   string `json:"session_human"`
+	OpenMinutes    int64  `json:"open_minutes"`
+	OpenHuman      string `json:"open_human"`
+	SessionCount   int    `json:"session_count"`
+	OpenSessions   int    `json:"open_sessions"`
+	EvidenceCount  int    `json:"evidence_count"`
+	SourceSummary  string `json:"source_summary"`
+	FirstSeen      string `json:"first_seen,omitempty"`
+	LastSeen       string `json:"last_seen,omitempty"`
+}
+
+type LinuxAuditResponse struct {
+	Rows            []LinuxAuditRow `json:"rows"`
+	Warnings        []string        `json:"warnings"`
+	ScannedServers  int             `json:"scanned_servers"`
+	SuccessfulHosts int             `json:"successful_hosts"`
+}
+
+func (server LinuxServer) NameOrHost() string {
+	if server.Name != "" {
+		return server.Name
+	}
+	return server.Host
+}
+
+func (server LinuxServer) DisplayName(remoteHost string) string {
+	if server.Name != "" {
+		return server.Name
+	}
+	if remoteHost != "" {
+		return remoteHost
+	}
+	return server.Host
+}
+
+func (server LinuxServer) PortOrDefault() int {
+	if server.Port > 0 {
+		return server.Port
+	}
+	return 22
+}

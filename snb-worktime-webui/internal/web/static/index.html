@@ -106,6 +106,126 @@
         </table>
       </div>
     </section>
+
+    <section class="panel inventory">
+      <div class="section-head">
+        <h2>Linux Servers</h2>
+        <span id="inventory-status" class="summary-meta">Local inventory.</span>
+      </div>
+
+      <div class="form-grid">
+        <input id="linux-server-id" type="hidden">
+        <label>
+          <span>Name</span>
+          <input id="linux-name" type="text" placeholder="prod-app-01">
+        </label>
+        <label>
+          <span>Host</span>
+          <input id="linux-host" type="text" placeholder="10.10.10.10 or host.example">
+        </label>
+        <label>
+          <span>Port</span>
+          <input id="linux-port" type="number" min="1" value="22">
+        </label>
+        <label>
+          <span>Username</span>
+          <input id="linux-username" type="text" placeholder="audit">
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="linux-password" type="password" placeholder="optional">
+        </label>
+        <label>
+          <span>Key passphrase</span>
+          <input id="linux-key-passphrase" type="password" placeholder="optional">
+        </label>
+      </div>
+
+      <div class="stack">
+        <label>
+          <span>Private key PEM</span>
+          <textarea id="linux-private-key" class="secret-area" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea>
+        </label>
+        <label>
+          <span>Notes</span>
+          <textarea id="linux-notes" class="notes-area" spellcheck="false" placeholder="sudo -n available, auth logs in /var/log/secure"></textarea>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="save-linux-server" class="primary-button" type="button">Save server</button>
+        <button id="reset-linux-server" class="ghost-button" type="button">Reset form</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Select</th>
+              <th>Name</th>
+              <th>Host</th>
+              <th>User</th>
+              <th>Auth</th>
+              <th>Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="linux-servers-body">
+            <tr>
+              <td colspan="7" class="empty-state">No Linux servers yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel linux-audit">
+      <div class="section-head">
+        <h2>Linux Audit</h2>
+        <span id="linux-audit-status" class="summary-meta">Use saved SSH targets.</span>
+      </div>
+
+      <div class="config-grid">
+        <label>
+          <span>Since</span>
+          <input id="linux-audit-since" type="datetime-local">
+        </label>
+        <label>
+          <span>Until</span>
+          <input id="linux-audit-until" type="datetime-local">
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="run-linux-audit" class="primary-button" type="button">Run Linux audit</button>
+        <span id="linux-audit-meta" class="status-line">No remote audit yet.</span>
+      </div>
+
+      <div id="linux-audit-warnings" class="warnings hidden"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Server</th>
+              <th>User</th>
+              <th>Session Time</th>
+              <th>Open Time</th>
+              <th>Sessions</th>
+              <th>Evidence</th>
+              <th>Sources</th>
+              <th>First Seen</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody id="linux-audit-body">
+            <tr>
+              <td colspan="9" class="empty-state">Run Linux audit to see remote journal results.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <script src="/app.js"></script>

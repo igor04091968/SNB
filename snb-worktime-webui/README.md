@@ -1,6 +1,6 @@
 # snb-worktime-webui
 
-Go-based local web UI for employee worktime calculation from Windows server and workstation data.
+Go-based local web UI for employee worktime calculation from Windows and Linux infrastructure data.
 
 ## What is included
 
@@ -8,6 +8,8 @@ Go-based local web UI for employee worktime calculation from Windows server and 
 - JSONL parser for session snapshots from Windows / RDP hosts;
 - native Windows WTS collector for real RDP session snapshots;
 - native Windows workstation heartbeat collector for activity windows;
+- Linux server inventory with SSH credentials and key-based auth;
+- remote Linux worktime audit from `last`, `who`, `journalctl`, `auth.log`, and `secure` when available;
 - optional activity confirmation windows from workstations, network logs, or other sources;
 - deterministic worktime summary by user and server;
 - Windows build path for running as a standalone `.exe`.
@@ -130,3 +132,40 @@ The heartbeat collector emits a window only when the workstation is unlocked and
 - add day grouping and payroll export;
 - add richer workstation state sources such as lock/unlock event ingestion;
 - persist raw imports and calculation results in SQLite.
+
+## Linux server audit
+
+The web UI now supports a local inventory of Linux servers with:
+
+- host and port;
+- SSH username;
+- password auth;
+- private key PEM auth;
+- optional key passphrase;
+- local notes for access specifics.
+
+Inventory is stored locally in `state/linux_servers.json`.
+
+### Remote audit sources
+
+For each selected Linux server the backend attempts to collect and correlate:
+
+- `last -F -w --time-format iso` from `wtmp`;
+- `who -u` for current open sessions;
+- `journalctl` lines related to `sshd`, `sudo`, `su`, and `systemd-logind`;
+- `/var/log/auth.log` and `/var/log/secure` tails when readable.
+
+If `sudo -n` is available, the collector automatically uses it to read more logs. If not, the audit still runs with the sources accessible to the SSH account.
+
+### What the Linux audit reports
+
+The Linux audit currently produces a journal-based summary per server and user:
+
+- total session time from `last` and current `who` sessions;
+- open-session time;
+- session counts;
+- evidence event count from `journalctl` and auth logs;
+- first and last seen timestamps;
+- source list used for the row.
+
+This is an evidence-driven SSH/session audit, not an idle-aware desktop tracker. Without a Linux-side agent or shell history instrumentation, journal data can prove session presence and administrative activity, but not perfect keyboard-level active work time.

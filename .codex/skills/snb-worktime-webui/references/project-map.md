@@ -23,9 +23,16 @@
   - native Windows workstation-side collector
   - reads current username, local IP, idle time, and lock state
   - converts current workstation status into an `activity window`
+- `internal/serverstore/`
+  - local JSON-backed inventory for Linux SSH targets
+  - stores SSH username, password, key, passphrase, and notes
+- `internal/linuxaudit/`
+  - SSH-based Linux audit runner
+  - collects `last`, `who`, `journalctl`, `auth.log`, and `secure`
+  - summarizes session minutes and evidence counts by user
 - `internal/web/handler.go`
   - serves embedded static assets
-  - exposes `/api/health` and `/api/analyze`
+  - exposes `/api/health`, `/api/analyze`, `/api/linux-servers`, `/api/linux-audit`
 - `internal/web/static/`
   - embedded browser UI
   - `index.html`, `app.js`, `styles.css`
@@ -57,6 +64,7 @@
 - Keep the UI static and embedded so the Windows deployment is one executable.
 - Use the native WTS collector as the primary source for server-side RDP activity snapshots.
 - Use the native workstation heartbeat collector as the first confirmation layer from employee PCs.
+- Use SSH-based Linux log collection as the infrastructure-side audit path for Linux hosts.
 - Keep parser input flexible because upstream Windows and workstation collectors may differ.
 - Keep the calculation transparent and auditable from raw events.
 
@@ -64,4 +72,5 @@
 
 - native Windows Event Log ingestion
 - day-based aggregation and payroll export
+- encrypted credential storage or OS keystore integration
 - SQLite storage for imports and computed summaries

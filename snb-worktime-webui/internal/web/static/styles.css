@@ -195,6 +195,11 @@ textarea {
   min-height: 120px;
 }
 
+.report-area {
+  min-height: 260px;
+  background: rgba(8, 14, 28, 0.92);
+}
+
 .input-card {
   display: grid;
   gap: 12px;

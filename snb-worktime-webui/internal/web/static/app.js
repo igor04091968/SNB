@@ -21,6 +21,10 @@ const statusLine = document.getElementById("status-line");
 const resultsBody = document.getElementById("results-body");
 const summaryMeta = document.getElementById("summary-meta");
 const warningsBox = document.getElementById("warnings");
+const hrReportMeta = document.getElementById("hr-report-meta");
+const hrReportStatus = document.getElementById("hr-report-status");
+const hrReportPreview = document.getElementById("hr-report-preview");
+const downloadHRReportButton = document.getElementById("download-hr-report");
 const inventoryStatus = document.getElementById("inventory-status");
 const linuxServersBody = document.getElementById("linux-servers-body");
 const linuxAuditBody = document.getElementById("linux-audit-body");
@@ -50,6 +54,7 @@ const resetLinuxServerButton = document.getElementById("reset-linux-server");
 const runLinuxAuditButton = document.getElementById("run-linux-audit");
 
 let linuxServers = [];
+let hrReportDownloadUrl = "";
 const intervalStorageKey = "snb-worktime-interval-defaults";
 
 document.getElementById("snapshots-file").addEventListener("change", event => loadFileInto(event, snapshotsText));
@@ -63,6 +68,7 @@ analyzeButton.addEventListener("click", analyze);
 saveLinuxServerButton.addEventListener("click", saveLinuxServer);
 resetLinuxServerButton.addEventListener("click", resetLinuxServerForm);
 runLinuxAuditButton.addEventListener("click", runLinuxAudit);
+downloadHRReportButton.addEventListener("click", downloadHRReport);
 defaultIntervalStart.addEventListener("change", persistDefaultIntervals);
 defaultIntervalEnd.addEventListener("change", persistDefaultIntervals);
 useOperatorInterval.addEventListener("change", updateEffectiveIntervalLabel);
@@ -103,11 +109,13 @@ async function analyze() {
     renderResults(payload.rows);
     renderWarnings(payload.warnings);
     summaryMeta.textContent = `${payload.rows.length} users, ${payload.snapshots} snapshots, ${payload.windows} activity windows`;
+    renderHRReport(payload);
     statusLine.textContent = "Analysis completed.";
   } catch (error) {
     statusLine.textContent = `Error: ${error.message}`;
     renderResults([]);
     renderWarnings([]);
+    resetHRReport();
     summaryMeta.textContent = "No analysis available.";
   } finally {
     analyzeButton.disabled = false;
@@ -136,6 +144,7 @@ function renderResults(rows) {
 }
 
 function renderWarnings(warnings) {
+  warnings = Array.isArray(warnings) ? warnings : [];
   if (!warnings.length) {
     warningsBox.classList.add("hidden");
     warningsBox.innerHTML = "";
@@ -144,6 +153,176 @@ function renderWarnings(warnings) {
 
   warningsBox.classList.remove("hidden");
   warningsBox.innerHTML = warnings.map(item => `<div>${escapeHtml(item)}</div>`).join("");
+}
+
+function renderHRReport(payload) {
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  if (!rows.length) {
+    resetHRReport();
+    hrReportStatus.textContent = "No report generated.";
+    return;
+  }
+
+  const totals = rows.reduce((acc, row) => {
+    acc.worked += Number(row.worked_minutes || 0);
+    acc.confirmed += Number(row.confirmed_minutes || 0);
+    acc.unconfirmed += Number(row.unconfirmed_minutes || 0);
+    acc.idle += Number(row.idle_minutes || 0);
+    acc.disconnected += Number(row.disconnected_minutes || 0);
+    acc.unknown += Number(row.unknown_minutes || 0);
+    return acc;
+  }, { worked: 0, confirmed: 0, unconfirmed: 0, idle: 0, disconnected: 0, unknown: 0 });
+
+  const period = `${filterSinceDate.value || "-"} .. ${filterUntilDate.value || "-"}`;
+  const effective = effectiveInterval();
+  const lines = [
+    "HR Worktime Report",
+    `Period: ${period}`,
+    `Interval: ${effective.start || "-"}-${effective.end || "-"}`,
+    `Users: ${rows.length}`,
+    `Snapshots: ${payload.snapshots || 0}`,
+    `Activity windows: ${payload.windows || 0}`,
+    "",
+    `Total worked: ${humanizeMinutes(totals.worked)}`,
+    `Total confirmed: ${humanizeMinutes(totals.confirmed)}`,
+    `Total unconfirmed: ${humanizeMinutes(totals.unconfirmed)}`,
+    `Total idle: ${humanizeMinutes(totals.idle)}`,
+    `Total disconnected: ${humanizeMinutes(totals.disconnected)}`,
+    `Total unknown: ${humanizeMinutes(totals.unknown)}`,
+    "",
+    "Per user:"
+  ];
+
+  for (const row of rows) {
+    lines.push(
+      `${row.user} | server=${row.server || "-"} | worked=${row.worked_human} | confirmed=${row.confirmed_human} | unconfirmed=${row.unconfirmed_human} | idle=${row.idle_human} | disconnected=${row.disconnected_human} | unknown=${row.unknown_human} | samples=${row.samples}`
+    );
+  }
+
+  hrReportPreview.value = lines.join("\n");
+  hrReportMeta.textContent = `${rows.length} employees, period ${period}, interval ${effective.start}-${effective.end}`;
+  hrReportStatus.textContent = "HR report generated automatically.";
+  updateHRReportDownload(buildHRReportCSV(rows, payload, period, effective));
+}
+
+function resetHRReport() {
+  hrReportPreview.value = "";
+  hrReportMeta.textContent = "Run analysis to generate HR-ready output.";
+  hrReportStatus.textContent = "No report generated.";
+  updateHRReportDownload("");
+}
+
+function buildHRReportCSV(rows, payload, period, effective) {
+  const header = [
+    "period",
+    "interval",
+    "employee",
+    "server",
+    "worked_human",
+    "worked_minutes",
+    "confirmed_human",
+    "confirmed_minutes",
+    "unconfirmed_human",
+    "unconfirmed_minutes",
+    "idle_human",
+    "idle_minutes",
+    "disconnected_human",
+    "disconnected_minutes",
+    "unknown_human",
+    "unknown_minutes",
+    "samples",
+    "snapshots_total",
+    "activity_windows_total"
+  ];
+  const lines = [header.join(",")];
+
+  for (const row of rows) {
+    lines.push([
+      period,
+      `${effective.start}-${effective.end}`,
+      row.user,
+      row.server || "",
+      row.worked_human,
+      row.worked_minutes,
+      row.confirmed_human,
+      row.confirmed_minutes,
+      row.unconfirmed_human,
+      row.unconfirmed_minutes,
+      row.idle_human,
+      row.idle_minutes,
+      row.disconnected_human,
+      row.disconnected_minutes,
+      row.unknown_human,
+      row.unknown_minutes,
+      row.samples,
+      payload.snapshots || 0,
+      payload.windows || 0
+    ].map(csvCell).join(","));
+  }
+
+  return lines.join("\n");
+}
+
+function updateHRReportDownload(csvText) {
+  if (hrReportDownloadUrl) {
+    URL.revokeObjectURL(hrReportDownloadUrl);
+    hrReportDownloadUrl = "";
+  }
+
+  if (!csvText) {
+    downloadHRReportButton.disabled = true;
+    downloadHRReportButton.dataset.downloadUrl = "";
+    downloadHRReportButton.dataset.filename = "";
+    return;
+  }
+
+  hrReportDownloadUrl = URL.createObjectURL(new Blob([csvText], { type: "text/csv;charset=utf-8" }));
+  downloadHRReportButton.disabled = false;
+  downloadHRReportButton.dataset.downloadUrl = hrReportDownloadUrl;
+  downloadHRReportButton.dataset.filename = buildHRReportFilename();
+}
+
+function downloadHRReport() {
+  const url = downloadHRReportButton.dataset.downloadUrl;
+  if (!url) {
+    return;
+  }
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = downloadHRReportButton.dataset.filename || buildHRReportFilename();
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+function buildHRReportFilename() {
+  const since = (filterSinceDate.value || "since").replaceAll("-", "");
+  const until = (filterUntilDate.value || "until").replaceAll("-", "");
+  return `hr-report-${since}-${until}.csv`;
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  if (!text.includes(",") && !text.includes('"') && !text.includes("\n")) {
+    return text;
+  }
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function humanizeMinutes(minutes) {
+  const safe = Number(minutes || 0);
+  if (safe <= 0) {
+    return "0m";
+  }
+  const hours = Math.floor(safe / 60);
+  const remainder = safe % 60;
+  if (hours === 0) {
+    return `${remainder}m`;
+  }
+  if (remainder === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${remainder}m`;
 }
 
 async function loadFileInto(event, target) {
@@ -358,6 +537,7 @@ function renderLinuxAuditTimeline(row) {
 }
 
 function renderBoxWarnings(element, warnings) {
+  warnings = Array.isArray(warnings) ? warnings : [];
   if (!warnings.length) {
     element.classList.add("hidden");
     element.innerHTML = "";

@@ -1,0 +1,2 @@
+{"server":"srv-1","client_ip":"10.0.0.10","started_at":"2026-04-18T09:00:00Z","ended_at":"2026-04-18T09:02:30Z","source":"workstation"}
+{"server":"srv-2","user":"bob","started_at":"2026-04-18T09:00:00Z","ended_at":"2026-04-18T09:01:00Z","source":"network"}

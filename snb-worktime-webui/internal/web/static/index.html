@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SNB Worktime Console</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="background-grid"></div>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">SNB Windows Worktime</p>
+        <h1>Objective worktime calculation from server and workstation signals.</h1>
+        <p class="lede">
+          Upload JSONL session snapshots from Windows servers and optional activity windows from
+          workstations, network logs, or other confirmation sources.
+        </p>
+      </div>
+      <div class="hero-card">
+        <div class="metric">
+          <span class="metric-label">Backend</span>
+          <strong>Go + embedded web UI</strong>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Target</span>
+          <strong>Windows executable</strong>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Mode</span>
+          <strong>Local-first analysis</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel controls">
+      <div class="section-head">
+        <h2>Input</h2>
+        <button id="load-sample" class="ghost-button" type="button">Load sample</button>
+      </div>
+
+      <div class="config-grid">
+        <label>
+          <span>Idle threshold, sec</span>
+          <input id="idle-threshold" type="number" min="1" value="60">
+        </label>
+        <label>
+          <span>Max gap, sec</span>
+          <input id="max-gap" type="number" min="60" value="600">
+        </label>
+      </div>
+
+      <div class="input-grid">
+        <div class="input-card">
+          <div class="input-head">
+            <h3>Session snapshots</h3>
+            <input id="snapshots-file" type="file" accept=".jsonl,.json,.txt">
+          </div>
+          <textarea id="snapshots-text" spellcheck="false" placeholder='{"server":"srv-1","user":"alice","state":"active","idle_seconds":5,"captured_at":"2026-04-18T09:00:00Z"}'></textarea>
+        </div>
+
+        <div class="input-card">
+          <div class="input-head">
+            <h3>Activity windows</h3>
+            <input id="activity-file" type="file" accept=".jsonl,.json,.txt">
+          </div>
+          <textarea id="activity-text" spellcheck="false" placeholder='{"server":"srv-1","client_ip":"10.0.0.10","started_at":"2026-04-18T09:00:00Z","ended_at":"2026-04-18T09:02:00Z"}'></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="analyze-button" class="primary-button" type="button">Analyze worktime</button>
+        <span id="status-line" class="status-line">Ready.</span>
+      </div>
+    </section>
+
+    <section class="panel results">
+      <div class="section-head">
+        <h2>Summary</h2>
+        <div id="summary-meta" class="summary-meta">No analysis yet.</div>
+      </div>
+
+      <div id="warnings" class="warnings hidden"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Server</th>
+              <th>User</th>
+              <th>Worked</th>
+              <th>Confirmed</th>
+              <th>Unconfirmed</th>
+              <th>Idle</th>
+              <th>Disconnected</th>
+              <th>Unknown</th>
+              <th>Samples</th>
+            </tr>
+          </thead>
+          <tbody id="results-body">
+            <tr>
+              <td colspan="9" class="empty-state">Run analysis to see the result set.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

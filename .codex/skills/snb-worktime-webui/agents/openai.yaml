@@ -1,0 +1,4 @@
+interface:
+  display_name: "SNB Worktime WebUI"
+  short_description: "Operate and extend SNB worktime app"
+  default_prompt: "Use $snb-worktime-webui to work on the Go web app for Windows worktime calculation in the SNB repository."

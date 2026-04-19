@@ -1,0 +1,9 @@
+{"server":"srv-1","user":"alice","session_id":"3","state":"active","idle_seconds":5,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:00:00Z"}
+{"server":"srv-1","user":"alice","session_id":"3","state":"active","idle_seconds":10,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:01:00Z"}
+{"server":"srv-1","user":"alice","session_id":"3","state":"active","idle_seconds":125,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:03:00Z"}
+{"server":"srv-1","user":"alice","session_id":"3","state":"disconnected","idle_seconds":0,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:05:00Z"}
+{"server":"srv-1","user":"alice","session_id":"3","state":"active","idle_seconds":20,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:06:00Z"}
+{"server":"srv-1","user":"alice","session_id":"3","state":"active","idle_seconds":15,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:08:00Z"}
+{"server":"srv-2","user":"bob","session_id":"8","state":"active","idle_seconds":0,"client_ip":"10.0.0.11","captured_at":"2026-04-18T09:00:00Z"}
+{"server":"srv-2","user":"bob","session_id":"8","state":"active","idle_seconds":0,"client_ip":"10.0.0.11","captured_at":"2026-04-18T09:02:00Z"}
+{"server":"srv-2","user":"bob","session_id":"8","state":"active","idle_seconds":0,"client_ip":"10.0.0.11","captured_at":"2026-04-18T09:14:00Z"}

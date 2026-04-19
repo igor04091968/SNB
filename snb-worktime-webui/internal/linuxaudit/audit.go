@@ -118,6 +118,16 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 			if window.Open {
 				agg.openMinutes += minutes
 			}
+			if clippedStart, clippedEnd, ok := timewindow.Clip(window.Started, window.Ended, cfg.Since, cfg.Until); ok {
+				agg.intervals = append(agg.intervals, model.LinuxAuditInterval{
+					StartedAt:       formatTime(clippedStart),
+					EndedAt:         formatTime(clippedEnd),
+					DurationMinutes: minutes,
+					DurationHuman:   humanMinutes(minutes),
+					Open:            window.Open,
+					SourceSummary:   strings.ReplaceAll(window.Source, ",", ", "),
+				})
+			}
 		}
 		agg.openSessions = countOpenSessions(merged)
 	}
@@ -148,6 +158,8 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 			SourceSummary:  joinSources(agg.sources),
 			FirstSeen:      formatTime(agg.firstSeen),
 			LastSeen:       formatTime(agg.lastSeen),
+			HasSessions:    len(agg.intervals) > 0,
+			Intervals:      agg.intervals,
 		})
 	}
 
@@ -353,6 +365,7 @@ type aggregate struct {
 	firstSeen      time.Time
 	lastSeen       time.Time
 	sources        map[string]struct{}
+	intervals      []model.LinuxAuditInterval
 }
 
 func updateSeen(agg *aggregate, moment time.Time) {

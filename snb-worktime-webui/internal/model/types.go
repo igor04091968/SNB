@@ -91,18 +91,20 @@ type LinuxAuditRequest struct {
 }
 
 type LinuxAuditRow struct {
-	Server         string `json:"server"`
-	User           string `json:"user"`
-	SessionMinutes int64  `json:"session_minutes"`
-	SessionHuman   string `json:"session_human"`
-	OpenMinutes    int64  `json:"open_minutes"`
-	OpenHuman      string `json:"open_human"`
-	SessionCount   int    `json:"session_count"`
-	OpenSessions   int    `json:"open_sessions"`
-	EvidenceCount  int    `json:"evidence_count"`
-	SourceSummary  string `json:"source_summary"`
-	FirstSeen      string `json:"first_seen,omitempty"`
-	LastSeen       string `json:"last_seen,omitempty"`
+	Server         string               `json:"server"`
+	User           string               `json:"user"`
+	SessionMinutes int64                `json:"session_minutes"`
+	SessionHuman   string               `json:"session_human"`
+	OpenMinutes    int64                `json:"open_minutes"`
+	OpenHuman      string               `json:"open_human"`
+	SessionCount   int                  `json:"session_count"`
+	OpenSessions   int                  `json:"open_sessions"`
+	EvidenceCount  int                  `json:"evidence_count"`
+	SourceSummary  string               `json:"source_summary"`
+	FirstSeen      string               `json:"first_seen,omitempty"`
+	LastSeen       string               `json:"last_seen,omitempty"`
+	HasSessions    bool                 `json:"has_sessions"`
+	Intervals      []LinuxAuditInterval `json:"intervals,omitempty"`
 }
 
 type LinuxAuditResponse struct {
@@ -110,6 +112,15 @@ type LinuxAuditResponse struct {
 	Warnings        []string        `json:"warnings"`
 	ScannedServers  int             `json:"scanned_servers"`
 	SuccessfulHosts int             `json:"successful_hosts"`
+}
+
+type LinuxAuditInterval struct {
+	StartedAt       string `json:"started_at"`
+	EndedAt         string `json:"ended_at"`
+	DurationMinutes int64  `json:"duration_minutes"`
+	DurationHuman   string `json:"duration_human"`
+	Open            bool   `json:"open"`
+	SourceSummary   string `json:"source_summary"`
 }
 
 func (server LinuxServer) NameOrHost() string {

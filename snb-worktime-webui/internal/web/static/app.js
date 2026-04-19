@@ -318,7 +318,7 @@ async function runLinuxAudit() {
 
 function renderLinuxAuditRows(rows) {
   if (!rows.length) {
-    linuxAuditBody.innerHTML = `<tr><td colspan="9" class="empty-state">No Linux audit rows.</td></tr>`;
+    linuxAuditBody.innerHTML = `<tr><td colspan="10" class="empty-state">No Linux audit rows.</td></tr>`;
     return;
   }
 
@@ -333,8 +333,28 @@ function renderLinuxAuditRows(rows) {
       <td>${escapeHtml(row.source_summary || "-")}</td>
       <td>${escapeHtml(formatDate(row.first_seen))}</td>
       <td>${escapeHtml(formatDate(row.last_seen))}</td>
+      <td>${renderLinuxAuditTimeline(row)}</td>
     </tr>
   `).join("");
+}
+
+function renderLinuxAuditTimeline(row) {
+  if (!row.has_sessions || !row.intervals || !row.intervals.length) {
+    return `<span class="summary-meta">Evidence only. No session windows.</span>`;
+  }
+
+  const items = row.intervals.map(interval => {
+    const source = interval.source_summary ? ` via ${escapeHtml(interval.source_summary)}` : "";
+    const openMark = interval.open ? " open" : "";
+    return `<div>${escapeHtml(formatDate(interval.started_at))} -> ${escapeHtml(formatDate(interval.ended_at))} (${escapeHtml(interval.duration_human)}${openMark})${source}</div>`;
+  }).join("");
+
+  return `
+    <details>
+      <summary>${escapeHtml(String(row.intervals.length))} interval(s)</summary>
+      ${items}
+    </details>
+  `;
 }
 
 function renderBoxWarnings(element, warnings) {

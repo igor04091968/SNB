@@ -40,3 +40,18 @@ func TestParseJournalEvidence(t *testing.T) {
 		t.Fatalf("unexpected evidence users: %+v", evidence)
 	}
 }
+
+func TestMergeSessionWindows(t *testing.T) {
+	windows := []sessionWindow{
+		{User: "igor", Started: time.Date(2026, 4, 19, 11, 0, 0, 0, time.UTC), Ended: time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC), Source: "who", Open: true},
+		{User: "igor", Started: time.Date(2026, 4, 19, 11, 30, 0, 0, time.UTC), Ended: time.Date(2026, 4, 19, 12, 15, 0, 0, time.UTC), Source: "last", Open: true},
+	}
+
+	merged := mergeSessionWindows(windows)
+	if len(merged) != 1 {
+		t.Fatalf("expected 1 merged window, got %d", len(merged))
+	}
+	if !merged[0].Started.Equal(time.Date(2026, 4, 19, 11, 0, 0, 0, time.UTC)) || !merged[0].Ended.Equal(time.Date(2026, 4, 19, 12, 15, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected merged window: %+v", merged[0])
+	}
+}

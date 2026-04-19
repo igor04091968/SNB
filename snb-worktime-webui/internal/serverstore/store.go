@@ -38,7 +38,7 @@ func (s *Store) List() ([]model.LinuxServer, error) {
 		}
 		return servers[i].Name < servers[j].Name
 	})
-	return servers, nil
+	return sanitize(servers), nil
 }
 
 func (s *Store) Upsert(server model.LinuxServer) (model.LinuxServer, error) {
@@ -89,7 +89,7 @@ func (s *Store) Upsert(server model.LinuxServer) (model.LinuxServer, error) {
 	if err := s.save(servers); err != nil {
 		return model.LinuxServer{}, err
 	}
-	return server, nil
+	return sanitizeOne(server), nil
 }
 
 func (s *Store) Delete(id string) error {
@@ -171,4 +171,19 @@ func generateID() string {
 	var buf [8]byte
 	_, _ = rand.Read(buf[:])
 	return hex.EncodeToString(buf[:])
+}
+
+func sanitize(servers []model.LinuxServer) []model.LinuxServer {
+	out := make([]model.LinuxServer, 0, len(servers))
+	for _, server := range servers {
+		out = append(out, sanitizeOne(server))
+	}
+	return out
+}
+
+func sanitizeOne(server model.LinuxServer) model.LinuxServer {
+	server.Password = ""
+	server.PrivateKeyPEM = ""
+	server.PrivateKeyPassphrase = ""
+	return server
 }

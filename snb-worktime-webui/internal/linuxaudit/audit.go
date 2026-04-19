@@ -85,6 +85,7 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 	evidence := append(parseJournalEvidence(sections.Journal, cfg.Since, cfg.Until), parseAuthEvidence(sections.AuthLog, cfg.Since, cfg.Until)...)
 
 	byUser := map[string]*aggregate{}
+	sessionCoverage := map[string][]sessionWindow{}
 	for _, session := range sessions {
 		user := normalizeUser(session.User)
 		if user == "" {
@@ -94,19 +95,27 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 		agg.sessionCount++
 		agg.sources[session.Source] = struct{}{}
 
-		minutes := int64(timewindow.Duration(session.Started, session.Ended, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes) / time.Minute)
-		if minutes <= 0 {
-			continue
-		}
-		agg.sessionMinutes += minutes
-		if session.Open {
-			agg.openMinutes += minutes
-			agg.openSessions++
-		}
 		if clippedStart, clippedEnd, ok := timewindow.Clip(session.Started, session.Ended, cfg.Since, cfg.Until); ok {
 			updateSeen(agg, clippedStart)
 			updateSeen(agg, clippedEnd)
 		}
+		sessionCoverage[user] = append(sessionCoverage[user], session)
+	}
+
+	for user, windows := range sessionCoverage {
+		agg := ensureAggregate(byUser, user)
+		merged := mergeSessionWindows(windows)
+		for _, window := range merged {
+			minutes := int64(timewindow.Duration(window.Started, window.Ended, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes) / time.Minute)
+			if minutes <= 0 {
+				continue
+			}
+			agg.sessionMinutes += minutes
+			if window.Open {
+				agg.openMinutes += minutes
+			}
+		}
+		agg.openSessions = countOpenSessions(merged)
 	}
 
 	for _, item := range evidence {
@@ -250,6 +259,66 @@ func humanMinutes(minutes int64) string {
 		return fmt.Sprintf("%dh", hours)
 	}
 	return fmt.Sprintf("%dh %dm", hours, remainder)
+}
+
+func mergeSessionWindows(windows []sessionWindow) []sessionWindow {
+	if len(windows) == 0 {
+		return nil
+	}
+	sorted := append([]sessionWindow(nil), windows...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Started.Equal(sorted[j].Started) {
+			return sorted[i].Ended.Before(sorted[j].Ended)
+		}
+		return sorted[i].Started.Before(sorted[j].Started)
+	})
+
+	merged := []sessionWindow{sorted[0]}
+	for _, current := range sorted[1:] {
+		last := &merged[len(merged)-1]
+		if !current.Started.After(last.Ended) {
+			if current.Ended.After(last.Ended) {
+				last.Ended = current.Ended
+			}
+			last.Open = last.Open || current.Open
+			last.Source = joinWindowSources(last.Source, current.Source)
+			continue
+		}
+		merged = append(merged, current)
+	}
+	return merged
+}
+
+func countOpenSessions(windows []sessionWindow) int {
+	count := 0
+	for _, window := range windows {
+		if window.Open {
+			count++
+		}
+	}
+	return count
+}
+
+func joinWindowSources(left string, right string) string {
+	set := map[string]struct{}{}
+	for _, item := range strings.Split(left, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			set[item] = struct{}{}
+		}
+	}
+	for _, item := range strings.Split(right, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			set[item] = struct{}{}
+		}
+	}
+	list := make([]string, 0, len(set))
+	for item := range set {
+		list = append(list, item)
+	}
+	sort.Strings(list)
+	return strings.Join(list, ",")
 }
 
 func formatTime(moment time.Time) string {

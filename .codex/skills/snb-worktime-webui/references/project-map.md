@@ -12,10 +12,17 @@
 - `cmd/snb-worktime-collector/main.go`
   - Windows collector entrypoint
   - writes JSONL session snapshots to stdout or a file
+- `cmd/snb-worktime-heartbeat/main.go`
+  - Windows workstation heartbeat entrypoint
+  - writes `activity windows` JSONL for unlocked, low-idle periods
 - `internal/collector/wts/`
   - native Windows Terminal Services collector
   - enumerates sessions through WTS APIs
   - captures user, session id, state, idle time, client name, client IP, logon time
+- `internal/collector/workstation/`
+  - native Windows workstation-side collector
+  - reads current username, local IP, idle time, and lock state
+  - converts current workstation status into an `activity window`
 - `internal/web/handler.go`
   - serves embedded static assets
   - exposes `/api/health` and `/api/analyze`
@@ -41,6 +48,7 @@
 - `go test ./...`
 - `go run ./cmd/snb-worktime-webui`
 - `GOOS=windows GOARCH=amd64 go build -o dist/snb-worktime-collector.exe ./cmd/snb-worktime-collector`
+- `GOOS=windows GOARCH=amd64 go build -o dist/snb-worktime-heartbeat.exe ./cmd/snb-worktime-heartbeat`
 - `GOOS=windows GOARCH=amd64 go build -o dist/snb-worktime-webui.exe ./cmd/snb-worktime-webui`
 
 ## Design Intent
@@ -48,12 +56,12 @@
 - Use local files and pasted JSONL as the initial ingestion path.
 - Keep the UI static and embedded so the Windows deployment is one executable.
 - Use the native WTS collector as the primary source for server-side RDP activity snapshots.
+- Use the native workstation heartbeat collector as the first confirmation layer from employee PCs.
 - Keep parser input flexible because upstream Windows and workstation collectors may differ.
 - Keep the calculation transparent and auditable from raw events.
 
 ## Expected Next Extensions
 
 - native Windows Event Log ingestion
-- WTS or RDP session collector support
 - day-based aggregation and payroll export
 - SQLite storage for imports and computed summaries

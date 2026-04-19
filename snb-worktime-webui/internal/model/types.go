@@ -15,12 +15,15 @@ type Snapshot struct {
 }
 
 type ActivityWindow struct {
-	Server    string
-	ClientIP  string
-	User      string
-	StartedAt time.Time
-	EndedAt   time.Time
-	Source    string
+	Server      string    `json:"server"`
+	ClientIP    string    `json:"client_ip,omitempty"`
+	User        string    `json:"user,omitempty"`
+	StartedAt   time.Time `json:"started_at"`
+	EndedAt     time.Time `json:"ended_at"`
+	Source      string    `json:"source,omitempty"`
+	ClientName  string    `json:"client_name,omitempty"`
+	IdleSeconds int       `json:"idle_seconds,omitempty"`
+	Locked      bool      `json:"locked,omitempty"`
 }
 
 type Config struct {

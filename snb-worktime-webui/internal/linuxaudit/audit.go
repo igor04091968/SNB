@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"snb-worktime-webui/internal/model"
 	"snb-worktime-webui/internal/timewindow"
@@ -199,12 +202,68 @@ func sshConfig(server model.LinuxServer) (*ssh.ClientConfig, error) {
 		return nil, fmt.Errorf("no SSH auth configured for %s", server.NameOrHost())
 	}
 
+	hostKeyCallback, err := hostKeyCallback(defaultKnownHostsPath())
+	if err != nil {
+		return nil, err
+	}
+
 	return &ssh.ClientConfig{
 		User:            server.Username,
 		Auth:            methods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         12 * time.Second,
 	}, nil
+}
+
+func defaultKnownHostsPath() string {
+	if value := strings.TrimSpace(os.Getenv("WORKTIME_KNOWN_HOSTS")); value != "" {
+		return value
+	}
+	return filepath.Join("state", "linux_known_hosts")
+}
+
+func hostKeyCallback(path string) (ssh.HostKeyCallback, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+	file, err := os.OpenFile(path, os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	_ = file.Close()
+
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		checkKnownHost, err := knownhosts.New(path)
+		if err != nil {
+			return err
+		}
+		err = checkKnownHost(hostname, remote, key)
+		if err == nil {
+			return nil
+		}
+
+		keyErr, ok := err.(*knownhosts.KeyError)
+		if !ok || len(keyErr.Want) != 0 {
+			return err
+		}
+
+		return appendKnownHost(path, hostname, key)
+	}, nil
+}
+
+func appendKnownHost(path string, hostname string, key ssh.PublicKey) error {
+	normalized := knownhosts.Normalize(hostname)
+	line := knownhosts.Line([]string{normalized}, key) + "\n"
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(line); err != nil {
+		return err
+	}
+	return nil
 }
 
 func parseSigner(pemText string, passphrase string) (ssh.Signer, error) {

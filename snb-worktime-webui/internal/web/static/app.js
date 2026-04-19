@@ -205,6 +205,63 @@ function renderHRReport(payload) {
   updateHRReportDownload(buildHRReportCSV(rows, payload, period, effective));
 }
 
+function renderLinuxAuditHRReport(payload) {
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  const period = `${filterSinceDate.value || "-"} .. ${filterUntilDate.value || "-"}`;
+  const effective = effectiveInterval();
+  if (!rows.length) {
+    resetHRReport();
+    hrReportStatus.textContent = "No HR report generated from Linux audit.";
+    return;
+  }
+
+  const sessionRows = rows.filter(row => row.has_sessions || Number(row.session_minutes || 0) > 0 || Number(row.session_count || 0) > 0);
+  const evidenceRows = rows.filter(row => !(row.has_sessions || Number(row.session_minutes || 0) > 0 || Number(row.session_count || 0) > 0));
+
+  const totalSessionMinutes = sessionRows.reduce((sum, row) => sum + Number(row.session_minutes || 0), 0);
+  const totalOpenMinutes = sessionRows.reduce((sum, row) => sum + Number(row.open_minutes || 0), 0);
+  const totalEvidence = rows.reduce((sum, row) => sum + Number(row.evidence_count || 0), 0);
+
+  const lines = [
+    "HR Linux Audit Report",
+    `Period: ${period}`,
+    `Interval: ${effective.start || "-"}-${effective.end || "-"}`,
+    `Hosts scanned: ${payload.successful_hosts || 0}/${payload.scanned_servers || 0}`,
+    `Employees with session windows: ${sessionRows.length}`,
+    `Evidence-only accounts: ${evidenceRows.length}`,
+    "",
+    `Total session time: ${humanizeMinutes(totalSessionMinutes)}`,
+    `Total open time: ${humanizeMinutes(totalOpenMinutes)}`,
+    `Total evidence events: ${totalEvidence}`,
+    ""
+  ];
+
+  if (sessionRows.length) {
+    lines.push("Interactive accounts:");
+    for (const row of sessionRows) {
+      lines.push(`${row.user} | server=${row.server || "-"} | session=${row.session_human} | open=${row.open_human} | sessions=${row.session_count}/${row.open_sessions} | evidence=${row.evidence_count} | sources=${row.source_summary || "-"} | first=${formatDate(row.first_seen)} | last=${formatDate(row.last_seen)}`);
+      if (Array.isArray(row.intervals) && row.intervals.length) {
+        for (const interval of row.intervals) {
+          lines.push(`  - ${formatDate(interval.started_at)} -> ${formatDate(interval.ended_at)} | ${interval.duration_human}${interval.open ? " | open" : ""} | ${interval.source_summary || "-"}`);
+        }
+      }
+    }
+    lines.push("");
+  }
+
+  if (evidenceRows.length) {
+    lines.push("Evidence-only accounts:");
+    for (const row of evidenceRows) {
+      lines.push(`${row.user} | server=${row.server || "-"} | evidence=${row.evidence_count} | sources=${row.source_summary || "-"} | first=${formatDate(row.first_seen)} | last=${formatDate(row.last_seen)}`);
+    }
+  }
+
+  hrReportPreview.value = lines.join("\n");
+  hrReportMeta.textContent = `${sessionRows.length} interactive accounts, ${evidenceRows.length} evidence-only, ${payload.successful_hosts || 0}/${payload.scanned_servers || 0} hosts`;
+  hrReportStatus.textContent = "HR report generated automatically from Linux audit.";
+  updateHRReportDownload(buildLinuxAuditHRReportCSV(rows, payload, period, effective));
+}
+
 function resetHRReport() {
   hrReportPreview.value = "";
   hrReportMeta.textContent = "Run analysis to generate HR-ready output.";
@@ -258,6 +315,70 @@ function buildHRReportCSV(rows, payload, period, effective) {
       payload.snapshots || 0,
       payload.windows || 0
     ].map(csvCell).join(","));
+  }
+
+  return lines.join("\n");
+}
+
+function buildLinuxAuditHRReportCSV(rows, payload, period, effective) {
+  const header = [
+    "report_type",
+    "period",
+    "interval",
+    "server",
+    "account",
+    "has_sessions",
+    "session_human",
+    "session_minutes",
+    "open_human",
+    "open_minutes",
+    "session_count",
+    "open_sessions",
+    "evidence_count",
+    "sources",
+    "first_seen",
+    "last_seen",
+    "interval_started_at",
+    "interval_ended_at",
+    "interval_duration_human",
+    "interval_duration_minutes",
+    "interval_open",
+    "interval_sources",
+    "hosts_scanned",
+    "hosts_successful"
+  ];
+  const lines = [header.join(",")];
+
+  for (const row of rows) {
+    const intervals = Array.isArray(row.intervals) && row.intervals.length ? row.intervals : [null];
+    for (const interval of intervals) {
+      lines.push([
+        "linux_audit",
+        period,
+        `${effective.start}-${effective.end}`,
+        row.server || "",
+        row.user || "",
+        row.has_sessions ? "yes" : "no",
+        row.session_human || "",
+        row.session_minutes || 0,
+        row.open_human || "",
+        row.open_minutes || 0,
+        row.session_count || 0,
+        row.open_sessions || 0,
+        row.evidence_count || 0,
+        row.source_summary || "",
+        row.first_seen || "",
+        row.last_seen || "",
+        interval?.started_at || "",
+        interval?.ended_at || "",
+        interval?.duration_human || "",
+        interval?.duration_minutes || 0,
+        interval?.open ? "yes" : "no",
+        interval?.source_summary || "",
+        payload.scanned_servers || 0,
+        payload.successful_hosts || 0
+      ].map(csvCell).join(","));
+    }
   }
 
   return lines.join("\n");
@@ -484,11 +605,13 @@ async function runLinuxAudit() {
     renderLinuxAuditRows(payload.rows || []);
     renderBoxWarnings(linuxAuditWarnings, payload.warnings || []);
     linuxAuditMeta.textContent = `${payload.successful_hosts}/${payload.scanned_servers} hosts scanned`;
+    renderLinuxAuditHRReport(payload);
     linuxAuditStatus.textContent = "Linux audit completed.";
   } catch (error) {
     linuxAuditStatus.textContent = `Error: ${error.message}`;
     renderLinuxAuditRows([]);
     renderBoxWarnings(linuxAuditWarnings, []);
+    resetHRReport();
     linuxAuditMeta.textContent = "No remote audit available.";
   } finally {
     runLinuxAuditButton.disabled = false;

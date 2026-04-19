@@ -3,14 +3,15 @@ package model
 import "time"
 
 type Snapshot struct {
-	Server      string
-	User        string
-	SessionID   string
-	State       string
-	IdleSeconds int
-	ClientIP    string
-	ClientName  string
-	CapturedAt  time.Time
+	Server      string    `json:"server"`
+	User        string    `json:"user"`
+	SessionID   string    `json:"session_id"`
+	State       string    `json:"state"`
+	IdleSeconds int       `json:"idle_seconds"`
+	ClientIP    string    `json:"client_ip,omitempty"`
+	ClientName  string    `json:"client_name,omitempty"`
+	CapturedAt  time.Time `json:"captured_at"`
+	LogonTime   time.Time `json:"logon_time,omitempty"`
 }
 
 type ActivityWindow struct {

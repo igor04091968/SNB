@@ -9,6 +9,13 @@
 - `cmd/snb-worktime-webui/main.go`
   - process entrypoint
   - starts the HTTP server with `internal/web`
+- `cmd/snb-worktime-collector/main.go`
+  - Windows collector entrypoint
+  - writes JSONL session snapshots to stdout or a file
+- `internal/collector/wts/`
+  - native Windows Terminal Services collector
+  - enumerates sessions through WTS APIs
+  - captures user, session id, state, idle time, client name, client IP, logon time
 - `internal/web/handler.go`
   - serves embedded static assets
   - exposes `/api/health` and `/api/analyze`
@@ -33,12 +40,14 @@
 
 - `go test ./...`
 - `go run ./cmd/snb-worktime-webui`
+- `GOOS=windows GOARCH=amd64 go build -o dist/snb-worktime-collector.exe ./cmd/snb-worktime-collector`
 - `GOOS=windows GOARCH=amd64 go build -o dist/snb-worktime-webui.exe ./cmd/snb-worktime-webui`
 
 ## Design Intent
 
 - Use local files and pasted JSONL as the initial ingestion path.
 - Keep the UI static and embedded so the Windows deployment is one executable.
+- Use the native WTS collector as the primary source for server-side RDP activity snapshots.
 - Keep parser input flexible because upstream Windows and workstation collectors may differ.
 - Keep the calculation transparent and auditable from raw events.
 

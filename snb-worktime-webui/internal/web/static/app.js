@@ -62,7 +62,7 @@ document.getElementById("activity-file").addEventListener("change", event => loa
 loadSampleButton.addEventListener("click", () => {
   snapshotsText.value = sampleSnapshots;
   activityText.value = sampleWindows;
-  statusLine.textContent = "Sample data loaded.";
+  statusLine.textContent = "Пример загружен.";
 });
 analyzeButton.addEventListener("click", analyze);
 saveLinuxServerButton.addEventListener("click", saveLinuxServer);
@@ -82,7 +82,7 @@ loadLinuxServers();
 
 async function analyze() {
   analyzeButton.disabled = true;
-  statusLine.textContent = "Analyzing...";
+  statusLine.textContent = "Идет расчет...";
 
   try {
     const response = await fetch("/api/analyze", {
@@ -102,21 +102,21 @@ async function analyze() {
 
     if (!response.ok) {
       const message = await response.text();
-      throw new Error(message || "Analysis failed");
+      throw new Error(message || "Ошибка расчета");
     }
 
     const payload = await response.json();
     renderResults(payload.rows);
     renderWarnings(payload.warnings);
-    summaryMeta.textContent = `${payload.rows.length} users, ${payload.snapshots} snapshots, ${payload.windows} activity windows`;
+    summaryMeta.textContent = `${payload.rows.length} сотрудников, ${payload.snapshots} записей сессий, ${payload.windows} интервалов активности`;
     renderHRReport(payload);
-    statusLine.textContent = "Analysis completed.";
+    statusLine.textContent = "Расчет завершен.";
   } catch (error) {
-    statusLine.textContent = `Error: ${error.message}`;
+    statusLine.textContent = `Ошибка: ${error.message}`;
     renderResults([]);
     renderWarnings([]);
     resetHRReport();
-    summaryMeta.textContent = "No analysis available.";
+    summaryMeta.textContent = "Данных для сводки нет.";
   } finally {
     analyzeButton.disabled = false;
   }
@@ -124,7 +124,7 @@ async function analyze() {
 
 function renderResults(rows) {
   if (!rows.length) {
-    resultsBody.innerHTML = `<tr><td colspan="9" class="empty-state">No rows to display.</td></tr>`;
+    resultsBody.innerHTML = `<tr><td colspan="9" class="empty-state">Нет строк для показа.</td></tr>`;
     return;
   }
 
@@ -159,7 +159,7 @@ function renderHRReport(payload) {
   const rows = Array.isArray(payload?.rows) ? payload.rows : [];
   if (!rows.length) {
     resetHRReport();
-    hrReportStatus.textContent = "No report generated.";
+    hrReportStatus.textContent = "Отчет не создан.";
     return;
   }
 
@@ -176,32 +176,32 @@ function renderHRReport(payload) {
   const period = `${filterSinceDate.value || "-"} .. ${filterUntilDate.value || "-"}`;
   const effective = effectiveInterval();
   const lines = [
-    "HR Worktime Report",
-    `Period: ${period}`,
-    `Interval: ${effective.start || "-"}-${effective.end || "-"}`,
-    `Users: ${rows.length}`,
-    `Snapshots: ${payload.snapshots || 0}`,
-    `Activity windows: ${payload.windows || 0}`,
+    "Отчет для кадровика",
+    `Период: ${period}`,
+    `Рабочий интервал: ${effective.start || "-"}-${effective.end || "-"}`,
+    `Сотрудников: ${rows.length}`,
+    `Записей сессий: ${payload.snapshots || 0}`,
+    `Интервалов активности: ${payload.windows || 0}`,
     "",
-    `Total worked: ${humanizeMinutes(totals.worked)}`,
-    `Total confirmed: ${humanizeMinutes(totals.confirmed)}`,
-    `Total unconfirmed: ${humanizeMinutes(totals.unconfirmed)}`,
-    `Total idle: ${humanizeMinutes(totals.idle)}`,
-    `Total disconnected: ${humanizeMinutes(totals.disconnected)}`,
-    `Total unknown: ${humanizeMinutes(totals.unknown)}`,
+    `Всего работа: ${humanizeMinutes(totals.worked)}`,
+    `Всего подтверждено: ${humanizeMinutes(totals.confirmed)}`,
+    `Всего без подтверждения: ${humanizeMinutes(totals.unconfirmed)}`,
+    `Всего простой: ${humanizeMinutes(totals.idle)}`,
+    `Всего отключен: ${humanizeMinutes(totals.disconnected)}`,
+    `Всего неясно: ${humanizeMinutes(totals.unknown)}`,
     "",
-    "Per user:"
+    "По сотрудникам:"
   ];
 
   for (const row of rows) {
     lines.push(
-      `${row.user} | server=${row.server || "-"} | worked=${row.worked_human} | confirmed=${row.confirmed_human} | unconfirmed=${row.unconfirmed_human} | idle=${row.idle_human} | disconnected=${row.disconnected_human} | unknown=${row.unknown_human} | samples=${row.samples}`
+      `${row.user} | сервер=${row.server || "-"} | работа=${row.worked_human} | подтверждено=${row.confirmed_human} | без подтверждения=${row.unconfirmed_human} | простой=${row.idle_human} | отключен=${row.disconnected_human} | неясно=${row.unknown_human} | точек=${row.samples}`
     );
   }
 
   hrReportPreview.value = lines.join("\n");
-  hrReportMeta.textContent = `${rows.length} employees, period ${period}, interval ${effective.start}-${effective.end}`;
-  hrReportStatus.textContent = "HR report generated automatically.";
+  hrReportMeta.textContent = `${rows.length} сотрудников, период ${period}, интервал ${effective.start}-${effective.end}`;
+  hrReportStatus.textContent = "Отчет создан автоматически.";
   updateHRReportDownload(buildHRReportCSV(rows, payload, period, effective));
 }
 
@@ -211,7 +211,7 @@ function renderLinuxAuditHRReport(payload) {
   const effective = effectiveInterval();
   if (!rows.length) {
     resetHRReport();
-    hrReportStatus.textContent = "No HR report generated from Linux audit.";
+    hrReportStatus.textContent = "Отчет по проверке Linux не создан.";
     return;
   }
 
@@ -223,26 +223,26 @@ function renderLinuxAuditHRReport(payload) {
   const totalEvidence = rows.reduce((sum, row) => sum + Number(row.evidence_count || 0), 0);
 
   const lines = [
-    "HR Linux Audit Report",
-    `Period: ${period}`,
-    `Interval: ${effective.start || "-"}-${effective.end || "-"}`,
-    `Hosts scanned: ${payload.successful_hosts || 0}/${payload.scanned_servers || 0}`,
-    `Employees with session windows: ${sessionRows.length}`,
-    `Evidence-only accounts: ${evidenceRows.length}`,
+    "Отчет для кадровика по проверке Linux",
+    `Период: ${period}`,
+    `Рабочий интервал: ${effective.start || "-"}-${effective.end || "-"}`,
+    `Проверено серверов: ${payload.successful_hosts || 0}/${payload.scanned_servers || 0}`,
+    `Учетных записей с рабочими сессиями: ${sessionRows.length}`,
+    `Служебных учетных записей без сессий: ${evidenceRows.length}`,
     "",
-    `Total session time: ${humanizeMinutes(totalSessionMinutes)}`,
-    `Total open time: ${humanizeMinutes(totalOpenMinutes)}`,
-    `Total evidence events: ${totalEvidence}`,
+    `Общее время сессий: ${humanizeMinutes(totalSessionMinutes)}`,
+    `Сейчас открыто: ${humanizeMinutes(totalOpenMinutes)}`,
+    `Всего событий: ${totalEvidence}`,
     ""
   ];
 
   if (sessionRows.length) {
-    lines.push("Interactive accounts:");
+    lines.push("Рабочие учетные записи:");
     for (const row of sessionRows) {
-      lines.push(`${row.user} | server=${row.server || "-"} | session=${row.session_human} | open=${row.open_human} | sessions=${row.session_count}/${row.open_sessions} | evidence=${row.evidence_count} | sources=${row.source_summary || "-"} | first=${formatDate(row.first_seen)} | last=${formatDate(row.last_seen)}`);
+      lines.push(`${row.user} | сервер=${row.server || "-"} | сессии=${row.session_human} | открыто=${row.open_human} | сессий=${row.session_count}/${row.open_sessions} | событий=${row.evidence_count} | источники=${row.source_summary || "-"} | первое=${formatDate(row.first_seen)} | последнее=${formatDate(row.last_seen)}`);
       if (Array.isArray(row.intervals) && row.intervals.length) {
         for (const interval of row.intervals) {
-          lines.push(`  - ${formatDate(interval.started_at)} -> ${formatDate(interval.ended_at)} | ${interval.duration_human}${interval.open ? " | open" : ""} | ${interval.source_summary || "-"}`);
+          lines.push(`  - ${formatDate(interval.started_at)} -> ${formatDate(interval.ended_at)} | ${interval.duration_human}${interval.open ? " | открыта" : ""} | ${interval.source_summary || "-"}`);
         }
       }
     }
@@ -250,22 +250,22 @@ function renderLinuxAuditHRReport(payload) {
   }
 
   if (evidenceRows.length) {
-    lines.push("Evidence-only accounts:");
+    lines.push("Служебные записи без рабочих сессий:");
     for (const row of evidenceRows) {
-      lines.push(`${row.user} | server=${row.server || "-"} | evidence=${row.evidence_count} | sources=${row.source_summary || "-"} | first=${formatDate(row.first_seen)} | last=${formatDate(row.last_seen)}`);
+      lines.push(`${row.user} | сервер=${row.server || "-"} | событий=${row.evidence_count} | источники=${row.source_summary || "-"} | первое=${formatDate(row.first_seen)} | последнее=${formatDate(row.last_seen)}`);
     }
   }
 
   hrReportPreview.value = lines.join("\n");
-  hrReportMeta.textContent = `${sessionRows.length} interactive accounts, ${evidenceRows.length} evidence-only, ${payload.successful_hosts || 0}/${payload.scanned_servers || 0} hosts`;
-  hrReportStatus.textContent = "HR report generated automatically from Linux audit.";
+  hrReportMeta.textContent = `${sessionRows.length} рабочих учетных записей, ${evidenceRows.length} служебных, ${payload.successful_hosts || 0}/${payload.scanned_servers || 0} серверов`;
+  hrReportStatus.textContent = "Отчет по проверке Linux создан автоматически.";
   updateHRReportDownload(buildLinuxAuditHRReportCSV(rows, payload, period, effective));
 }
 
 function resetHRReport() {
   hrReportPreview.value = "";
-  hrReportMeta.textContent = "Run analysis to generate HR-ready output.";
-  hrReportStatus.textContent = "No report generated.";
+  hrReportMeta.textContent = "Отчет появится после расчета или проверки Linux.";
+  hrReportStatus.textContent = "Отчет еще не создан.";
   updateHRReportDownload("");
 }
 
@@ -419,7 +419,7 @@ function downloadHRReport() {
 function buildHRReportFilename() {
   const since = (filterSinceDate.value || "since").replaceAll("-", "");
   const until = (filterUntilDate.value || "until").replaceAll("-", "");
-  return `hr-report-${since}-${until}.csv`;
+  return `otchet-hr-${since}-${until}.csv`;
 }
 
 function csvCell(value) {
@@ -453,27 +453,27 @@ async function loadFileInto(event, target) {
   }
 
   target.value = await file.text();
-  statusLine.textContent = `${file.name} loaded.`;
+  statusLine.textContent = `${file.name} загружен.`;
 }
 
 async function loadLinuxServers() {
   try {
     const response = await fetch("/api/linux-servers");
     if (!response.ok) {
-      throw new Error("Failed to load Linux servers");
+      throw new Error("Не удалось загрузить список Linux-серверов");
     }
     const payload = await response.json();
     linuxServers = payload.servers || [];
     renderLinuxServers();
-    inventoryStatus.textContent = `${linuxServers.length} SSH targets saved.`;
+    inventoryStatus.textContent = `Сохранено серверов: ${linuxServers.length}.`;
   } catch (error) {
-    inventoryStatus.textContent = `Error: ${error.message}`;
+    inventoryStatus.textContent = `Ошибка: ${error.message}`;
   }
 }
 
 function renderLinuxServers() {
   if (!linuxServers.length) {
-    linuxServersBody.innerHTML = `<tr><td colspan="7" class="empty-state">No Linux servers yet.</td></tr>`;
+    linuxServersBody.innerHTML = `<tr><td colspan="7" class="empty-state">Серверы еще не добавлены.</td></tr>`;
     return;
   }
 
@@ -486,8 +486,8 @@ function renderLinuxServers() {
       <td>${describeAuth(server)}</td>
       <td>${escapeHtml(formatDate(server.updated_at))}</td>
       <td class="row-actions">
-        <button class="ghost-button small-button" type="button" onclick="editLinuxServer('${escapeJs(server.id)}')">Edit</button>
-        <button class="ghost-button small-button danger-button" type="button" onclick="deleteLinuxServer('${escapeJs(server.id)}')">Delete</button>
+        <button class="ghost-button small-button" type="button" onclick="editLinuxServer('${escapeJs(server.id)}')">Изменить</button>
+        <button class="ghost-button small-button danger-button" type="button" onclick="deleteLinuxServer('${escapeJs(server.id)}')">Удалить</button>
       </td>
     </tr>
   `).join("");
@@ -495,7 +495,7 @@ function renderLinuxServers() {
 
 async function saveLinuxServer() {
   saveLinuxServerButton.disabled = true;
-  inventoryStatus.textContent = "Saving Linux server...";
+  inventoryStatus.textContent = "Сохраняю сервер...";
 
   try {
     const response = await fetch("/api/linux-servers", {
@@ -514,13 +514,13 @@ async function saveLinuxServer() {
       })
     });
     if (!response.ok) {
-      throw new Error(await response.text() || "Failed to save Linux server");
+      throw new Error(await response.text() || "Не удалось сохранить сервер");
     }
     resetLinuxServerForm();
     await loadLinuxServers();
-    inventoryStatus.textContent = "Linux server saved.";
+    inventoryStatus.textContent = "Сервер сохранен.";
   } catch (error) {
-    inventoryStatus.textContent = `Error: ${error.message}`;
+    inventoryStatus.textContent = `Ошибка: ${error.message}`;
   } finally {
     saveLinuxServerButton.disabled = false;
   }
@@ -540,7 +540,7 @@ function editLinuxServer(id) {
   linuxPrivateKey.value = server.private_key_pem || "";
   linuxKeyPassphrase.value = server.private_key_passphrase || "";
   linuxNotes.value = server.notes || "";
-  inventoryStatus.textContent = `Editing ${server.name || server.host}.`;
+  inventoryStatus.textContent = `Редактирование: ${server.name || server.host}.`;
 }
 
 async function deleteLinuxServer(id) {
@@ -548,18 +548,18 @@ async function deleteLinuxServer(id) {
   if (!server) {
     return;
   }
-  if (!window.confirm(`Delete ${server.name || server.host}?`)) {
+  if (!window.confirm(`Удалить сервер ${server.name || server.host}?`)) {
     return;
   }
   try {
     const response = await fetch(`/api/linux-servers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     if (!response.ok) {
-      throw new Error(await response.text() || "Delete failed");
+      throw new Error(await response.text() || "Не удалось удалить сервер");
     }
     await loadLinuxServers();
-    inventoryStatus.textContent = "Linux server deleted.";
+    inventoryStatus.textContent = "Сервер удален.";
   } catch (error) {
-    inventoryStatus.textContent = `Error: ${error.message}`;
+    inventoryStatus.textContent = `Ошибка: ${error.message}`;
   }
 }
 
@@ -578,12 +578,12 @@ function resetLinuxServerForm() {
 async function runLinuxAudit() {
   const selected = Array.from(document.querySelectorAll(".linux-server-check:checked")).map(item => item.value);
   if (!selected.length) {
-    linuxAuditStatus.textContent = "Select at least one Linux server.";
+    linuxAuditStatus.textContent = "Выберите хотя бы один сервер.";
     return;
   }
 
   runLinuxAuditButton.disabled = true;
-  linuxAuditStatus.textContent = "Running remote Linux audit...";
+  linuxAuditStatus.textContent = "Идет проверка серверов...";
 
   try {
     const response = await fetch("/api/linux-audit", {
@@ -598,21 +598,21 @@ async function runLinuxAudit() {
       })
     });
     if (!response.ok) {
-      throw new Error(await response.text() || "Linux audit failed");
+      throw new Error(await response.text() || "Проверка Linux завершилась с ошибкой");
     }
 
     const payload = await response.json();
     renderLinuxAuditRows(payload.rows || []);
     renderBoxWarnings(linuxAuditWarnings, payload.warnings || []);
-    linuxAuditMeta.textContent = `${payload.successful_hosts}/${payload.scanned_servers} hosts scanned`;
+    linuxAuditMeta.textContent = `Проверено серверов: ${payload.successful_hosts}/${payload.scanned_servers}`;
     renderLinuxAuditHRReport(payload);
-    linuxAuditStatus.textContent = "Linux audit completed.";
+    linuxAuditStatus.textContent = "Проверка Linux завершена.";
   } catch (error) {
-    linuxAuditStatus.textContent = `Error: ${error.message}`;
+    linuxAuditStatus.textContent = `Ошибка: ${error.message}`;
     renderLinuxAuditRows([]);
     renderBoxWarnings(linuxAuditWarnings, []);
     resetHRReport();
-    linuxAuditMeta.textContent = "No remote audit available.";
+    linuxAuditMeta.textContent = "Нет данных проверки.";
   } finally {
     runLinuxAuditButton.disabled = false;
   }
@@ -620,7 +620,7 @@ async function runLinuxAudit() {
 
 function renderLinuxAuditRows(rows) {
   if (!rows.length) {
-    linuxAuditBody.innerHTML = `<tr><td colspan="10" class="empty-state">No Linux audit rows.</td></tr>`;
+    linuxAuditBody.innerHTML = `<tr><td colspan="10" class="empty-state">Нет строк по Linux-аудиту.</td></tr>`;
     return;
   }
 
@@ -642,18 +642,18 @@ function renderLinuxAuditRows(rows) {
 
 function renderLinuxAuditTimeline(row) {
   if (!row.has_sessions || !row.intervals || !row.intervals.length) {
-    return `<span class="summary-meta">Evidence only. No session windows.</span>`;
+    return `<span class="summary-meta">Есть только события. Рабочие интервалы не найдены.</span>`;
   }
 
   const items = row.intervals.map(interval => {
-    const source = interval.source_summary ? ` via ${escapeHtml(interval.source_summary)}` : "";
-    const openMark = interval.open ? " open" : "";
+    const source = interval.source_summary ? `, источник: ${escapeHtml(interval.source_summary)}` : "";
+    const openMark = interval.open ? " открыта" : "";
     return `<div>${escapeHtml(formatDate(interval.started_at))} -> ${escapeHtml(formatDate(interval.ended_at))} (${escapeHtml(interval.duration_human)}${openMark})${source}</div>`;
   }).join("");
 
   return `
     <details>
-      <summary>${escapeHtml(String(row.intervals.length))} interval(s)</summary>
+      <summary>Интервалов: ${escapeHtml(String(row.intervals.length))}</summary>
       ${items}
     </details>
   `;
@@ -673,12 +673,12 @@ function renderBoxWarnings(element, warnings) {
 function describeAuth(server) {
   const methods = [];
   if (server.password) {
-    methods.push("password");
+    methods.push("пароль");
   }
   if (server.private_key_pem) {
-    methods.push("key");
+    methods.push("ключ");
   }
-  return escapeHtml(methods.join(" + ") || "none");
+  return escapeHtml(methods.join(" + ") || "не указан");
 }
 
 function setDefaultDateRange() {
@@ -751,8 +751,8 @@ function effectiveInterval() {
 function updateEffectiveIntervalLabel() {
   const effective = effectiveInterval();
   intervalEffectiveLabel.textContent = useOperatorInterval.checked
-    ? `Effective interval: operator ${effective.start}-${effective.end}.`
-    : `Effective interval: default ${effective.start}-${effective.end}.`;
+    ? `Будет использован заданный вручную интервал: ${effective.start}-${effective.end}.`
+    : `Будет использован интервал по умолчанию: ${effective.start}-${effective.end}.`;
 }
 
 function escapeJs(value) {

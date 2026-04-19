@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SNB Worktime Console</title>
+  <title>SNB Учет времени</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -11,73 +11,73 @@
   <main class="shell">
     <section class="hero">
       <div>
-        <p class="eyebrow">SNB Windows Worktime</p>
-        <h1>Objective worktime calculation from server and workstation signals.</h1>
+        <p class="eyebrow">SNB Учет времени</p>
+        <h1>Учет рабочего времени по данным серверов и рабочих мест.</h1>
         <p class="lede">
-          Upload JSONL session snapshots from Windows servers and optional activity windows from
-          workstations, network logs, or other confirmation sources.
+          Загрузите данные сессий и, при необходимости, подтверждающие данные с рабочих мест.
+          Система сама подготовит сводку и отчет для кадровика.
         </p>
       </div>
       <div class="hero-card">
         <div class="metric">
-          <span class="metric-label">Backend</span>
-          <strong>Go + embedded web UI</strong>
+          <span class="metric-label">Основа</span>
+          <strong>Go + встроенный web-интерфейс</strong>
         </div>
         <div class="metric">
-          <span class="metric-label">Target</span>
-          <strong>Windows executable</strong>
+          <span class="metric-label">Запуск</span>
+          <strong>Локально, без внешнего сервера</strong>
         </div>
         <div class="metric">
-          <span class="metric-label">Mode</span>
-          <strong>Local-first analysis</strong>
+          <span class="metric-label">Результат</span>
+          <strong>Сводка + HR-отчет</strong>
         </div>
       </div>
     </section>
 
     <section class="panel controls">
       <div class="section-head">
-        <h2>Input</h2>
-        <button id="load-sample" class="ghost-button" type="button">Load sample</button>
+        <h2>Данные</h2>
+        <button id="load-sample" class="ghost-button" type="button">Загрузить пример</button>
       </div>
 
       <div class="config-grid">
         <label>
-          <span>Idle threshold, sec</span>
+          <span>Порог простоя, сек</span>
           <input id="idle-threshold" type="number" min="1" value="60">
         </label>
         <label>
-          <span>Max gap, sec</span>
+          <span>Максимальный разрыв, сек</span>
           <input id="max-gap" type="number" min="60" value="600">
         </label>
       </div>
 
       <div class="section-head subhead">
-        <h3>Calendar and Intervals</h3>
-        <span class="summary-meta">Shared by local analysis and Linux audit.</span>
+        <h3>Период и часы</h3>
+        <span class="summary-meta">Используются и для расчета, и для проверки Linux.</span>
       </div>
 
       <div class="form-grid">
         <label>
-          <span>From date</span>
+          <span>С даты</span>
           <input id="filter-since-date" type="date">
         </label>
         <label>
-          <span>To date</span>
+          <span>По дату</span>
           <input id="filter-until-date" type="date">
         </label>
         <label class="toggle-wrap">
-          <span>Operator override</span>
+          <span>Переопределить часы</span>
           <input id="use-operator-interval" type="checkbox">
         </label>
       </div>
 
       <div class="form-grid">
         <label>
-          <span>Default start</span>
+          <span>Начало по умолчанию</span>
           <input id="default-interval-start" type="time" value="09:00">
         </label>
         <label>
-          <span>Default end</span>
+          <span>Конец по умолчанию</span>
           <input id="default-interval-end" type="time" value="18:00">
         </label>
         <div></div>
@@ -85,20 +85,20 @@
 
       <div class="form-grid operator-interval-grid">
         <label>
-          <span>Operator start</span>
+          <span>Начало вручную</span>
           <input id="operator-interval-start" type="time" value="09:00">
         </label>
         <label>
-          <span>Operator end</span>
+          <span>Конец вручную</span>
           <input id="operator-interval-end" type="time" value="18:00">
         </label>
-        <div class="interval-help" id="interval-effective-label">Effective interval: default 09:00-18:00.</div>
+          <div class="interval-help" id="interval-effective-label">Будет использован интервал по умолчанию: 09:00-18:00.</div>
       </div>
 
       <div class="input-grid">
         <div class="input-card">
           <div class="input-head">
-            <h3>Session snapshots</h3>
+            <h3>Сессии</h3>
             <input id="snapshots-file" type="file" accept=".jsonl,.json,.txt">
           </div>
           <textarea id="snapshots-text" spellcheck="false" placeholder='{"server":"srv-1","user":"alice","state":"active","idle_seconds":5,"captured_at":"2026-04-18T09:00:00Z"}'></textarea>
@@ -106,7 +106,7 @@
 
         <div class="input-card">
           <div class="input-head">
-            <h3>Activity windows</h3>
+            <h3>Подтверждение активности</h3>
             <input id="activity-file" type="file" accept=".jsonl,.json,.txt">
           </div>
           <textarea id="activity-text" spellcheck="false" placeholder='{"server":"srv-1","client_ip":"10.0.0.10","started_at":"2026-04-18T09:00:00Z","ended_at":"2026-04-18T09:02:00Z"}'></textarea>
@@ -114,15 +114,15 @@
       </div>
 
       <div class="actions">
-        <button id="analyze-button" class="primary-button" type="button">Analyze worktime</button>
-        <span id="status-line" class="status-line">Ready.</span>
+        <button id="analyze-button" class="primary-button" type="button">Рассчитать время</button>
+        <span id="status-line" class="status-line">Готово.</span>
       </div>
     </section>
 
     <section class="panel results">
       <div class="section-head">
-        <h2>Summary</h2>
-        <div id="summary-meta" class="summary-meta">No analysis yet.</div>
+        <h2>Сводка</h2>
+        <div id="summary-meta" class="summary-meta">Расчет еще не выполнялся.</div>
       </div>
 
       <div id="warnings" class="warnings hidden"></div>
@@ -131,20 +131,20 @@
         <table>
           <thead>
             <tr>
-              <th>Server</th>
-              <th>User</th>
-              <th>Worked</th>
-              <th>Confirmed</th>
-              <th>Unconfirmed</th>
-              <th>Idle</th>
-              <th>Disconnected</th>
-              <th>Unknown</th>
-              <th>Samples</th>
+              <th>Сервер</th>
+              <th>Пользователь</th>
+              <th>Работа</th>
+              <th>Подтверждено</th>
+              <th>Без подтверждения</th>
+              <th>Простой</th>
+              <th>Отключен</th>
+              <th>Неясно</th>
+              <th>Точек</th>
             </tr>
           </thead>
           <tbody id="results-body">
             <tr>
-              <td colspan="9" class="empty-state">Run analysis to see the result set.</td>
+              <td colspan="9" class="empty-state">Нажмите «Рассчитать время», чтобы получить результат.</td>
             </tr>
           </tbody>
         </table>
@@ -153,89 +153,89 @@
 
     <section class="panel hr-report">
       <div class="section-head">
-        <h2>HR Report</h2>
-        <div id="hr-report-meta" class="summary-meta">Run analysis to generate HR-ready output.</div>
+        <h2>Отчет для кадровика</h2>
+        <div id="hr-report-meta" class="summary-meta">Отчет появится после расчета или проверки Linux.</div>
       </div>
 
       <div class="actions">
-        <button id="download-hr-report" class="ghost-button" type="button" disabled>Download CSV</button>
-        <span id="hr-report-status" class="status-line">No report generated.</span>
+        <button id="download-hr-report" class="ghost-button" type="button" disabled>Скачать CSV</button>
+        <span id="hr-report-status" class="status-line">Отчет еще не создан.</span>
       </div>
 
       <div class="stack">
         <label>
-          <span>Report preview</span>
-          <textarea id="hr-report-preview" class="report-area" readonly spellcheck="false" placeholder="Analyze worktime to generate an HR report."></textarea>
+          <span>Предпросмотр</span>
+          <textarea id="hr-report-preview" class="report-area" readonly spellcheck="false" placeholder="Запустите расчет или проверку Linux, чтобы получить отчет."></textarea>
         </label>
       </div>
     </section>
 
     <section class="panel inventory">
       <div class="section-head">
-        <h2>Linux Servers</h2>
-        <span id="inventory-status" class="summary-meta">Local inventory.</span>
+        <h2>Linux-серверы</h2>
+        <span id="inventory-status" class="summary-meta">Локальный список серверов.</span>
       </div>
 
       <div class="form-grid">
         <input id="linux-server-id" type="hidden">
         <label>
-          <span>Name</span>
+          <span>Название</span>
           <input id="linux-name" type="text" placeholder="prod-app-01">
         </label>
         <label>
-          <span>Host</span>
-          <input id="linux-host" type="text" placeholder="10.10.10.10 or host.example">
+          <span>Хост</span>
+          <input id="linux-host" type="text" placeholder="10.10.10.10 или host.example">
         </label>
         <label>
-          <span>Port</span>
+          <span>Порт</span>
           <input id="linux-port" type="number" min="1" value="22">
         </label>
         <label>
-          <span>Username</span>
+          <span>Пользователь</span>
           <input id="linux-username" type="text" placeholder="audit">
         </label>
         <label>
-          <span>Password</span>
-          <input id="linux-password" type="password" placeholder="optional">
+          <span>Пароль</span>
+          <input id="linux-password" type="password" placeholder="необязательно">
         </label>
         <label>
-          <span>Key passphrase</span>
-          <input id="linux-key-passphrase" type="password" placeholder="optional">
+          <span>Пароль к ключу</span>
+          <input id="linux-key-passphrase" type="password" placeholder="необязательно">
         </label>
       </div>
 
       <div class="stack">
         <label>
-          <span>Private key PEM</span>
+          <span>Приватный ключ PEM</span>
           <textarea id="linux-private-key" class="secret-area" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea>
         </label>
         <label>
-          <span>Notes</span>
-          <textarea id="linux-notes" class="notes-area" spellcheck="false" placeholder="sudo -n available, auth logs in /var/log/secure"></textarea>
+          <span>Заметки</span>
+          <textarea id="linux-notes" class="notes-area" spellcheck="false" placeholder="Например: доступен sudo -n, логи в /var/log/secure"></textarea>
         </label>
       </div>
 
       <div class="actions">
-        <button id="save-linux-server" class="primary-button" type="button">Save server</button>
-        <button id="reset-linux-server" class="ghost-button" type="button">Reset form</button>
+        <button id="save-linux-server" class="primary-button" type="button">Сохранить сервер</button>
+        <button id="reset-linux-server" class="ghost-button" type="button">Очистить форму</button>
       </div>
 
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Select</th>
-              <th>Name</th>
-              <th>Host</th>
-              <th>User</th>
-              <th>Auth</th>
-              <th>Updated</th>
-              <th>Actions</th>
+              <th>Выбор</th>
+              <th>Название</th>
+              <th>Хост</th>
+              <th>Пользователь</th>
+              <th>Доступ</th>
+              <th>Обновлено</th>
+              <th>Действия</th>
             </tr>
           </thead>
           <tbody id="linux-servers-body">
             <tr>
-              <td colspan="7" class="empty-state">No Linux servers yet.</td>
+              <td colspan="7" class="empty-state">Серверы еще не добавлены.</td>
             </tr>
           </tbody>
         </table>
@@ -244,13 +244,13 @@
 
     <section class="panel linux-audit">
       <div class="section-head">
-        <h2>Linux Audit</h2>
-        <span id="linux-audit-status" class="summary-meta">Use saved SSH targets.</span>
+        <h2>Проверка Linux</h2>
+        <span id="linux-audit-status" class="summary-meta">Выберите сервер и запустите проверку.</span>
       </div>
 
       <div class="actions">
-        <button id="run-linux-audit" class="primary-button" type="button">Run Linux audit</button>
-        <span id="linux-audit-meta" class="status-line">No remote audit yet.</span>
+        <button id="run-linux-audit" class="primary-button" type="button">Проверить серверы</button>
+        <span id="linux-audit-meta" class="status-line">Проверка еще не запускалась.</span>
       </div>
 
       <div id="linux-audit-warnings" class="warnings hidden"></div>
@@ -259,21 +259,21 @@
         <table>
           <thead>
             <tr>
-              <th>Server</th>
-              <th>User</th>
-              <th>Session Time</th>
-              <th>Open Time</th>
-              <th>Sessions</th>
-              <th>Evidence</th>
-              <th>Sources</th>
-              <th>First Seen</th>
-              <th>Last Seen</th>
-              <th>Timeline</th>
+              <th>Сервер</th>
+              <th>Пользователь</th>
+              <th>Время сессий</th>
+              <th>Открыто сейчас</th>
+              <th>Сессии</th>
+              <th>События</th>
+              <th>Источники</th>
+              <th>Первое время</th>
+              <th>Последнее время</th>
+              <th>Интервалы</th>
             </tr>
           </thead>
           <tbody id="linux-audit-body">
             <tr>
-              <td colspan="10" class="empty-state">Run Linux audit to see remote journal results.</td>
+              <td colspan="10" class="empty-state">Запустите проверку Linux, чтобы увидеть результат.</td>
             </tr>
           </tbody>
         </table>

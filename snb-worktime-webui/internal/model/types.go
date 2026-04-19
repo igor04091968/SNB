@@ -33,6 +33,7 @@ type Config struct {
 	Until               time.Time
 	DayStartMinutes     int
 	DayEndMinutes       int
+	Location            *time.Location `json:"-"`
 }
 
 type Summary struct {

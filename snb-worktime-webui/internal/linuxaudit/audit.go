@@ -48,6 +48,9 @@ func Audit(servers []model.LinuxServer, cfg model.Config) model.LinuxAuditRespon
 	if cfg.Since.IsZero() {
 		cfg.Since = cfg.Until.Add(-24 * time.Hour)
 	}
+	if cfg.Location == nil {
+		cfg.Location = time.UTC
+	}
 
 	response := model.LinuxAuditResponse{
 		Rows:           []model.LinuxAuditRow{},
@@ -102,11 +105,6 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 		agg := ensureAggregate(byUser, user)
 		agg.sessionCount++
 		agg.sources[session.Source] = struct{}{}
-
-		if clippedStart, clippedEnd, ok := timewindow.Clip(session.Started, session.Ended, cfg.Since, cfg.Until); ok {
-			updateSeen(agg, clippedStart)
-			updateSeen(agg, clippedEnd)
-		}
 		sessionCoverage[user] = append(sessionCoverage[user], session)
 	}
 
@@ -114,18 +112,21 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 		agg := ensureAggregate(byUser, user)
 		merged := mergeSessionWindows(windows)
 		for _, window := range merged {
-			minutes := int64(timewindow.Duration(window.Started, window.Ended, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes) / time.Minute)
-			if minutes <= 0 {
-				continue
-			}
-			agg.sessionMinutes += minutes
-			if window.Open {
-				agg.openMinutes += minutes
-			}
-			if clippedStart, clippedEnd, ok := timewindow.Clip(window.Started, window.Ended, cfg.Since, cfg.Until); ok {
+			segments := timewindow.Segments(window.Started, window.Ended, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes, cfg.Location)
+			for _, segment := range segments {
+				minutes := int64(segment.End.Sub(segment.Start) / time.Minute)
+				if minutes <= 0 {
+					continue
+				}
+				agg.sessionMinutes += minutes
+				if window.Open {
+					agg.openMinutes += minutes
+				}
+				updateSeen(agg, segment.Start)
+				updateSeen(agg, segment.End)
 				agg.intervals = append(agg.intervals, model.LinuxAuditInterval{
-					StartedAt:       formatTime(clippedStart),
-					EndedAt:         formatTime(clippedEnd),
+					StartedAt:       formatTime(segment.Start),
+					EndedAt:         formatTime(segment.End),
 					DurationMinutes: minutes,
 					DurationHuman:   humanMinutes(minutes),
 					Open:            window.Open,

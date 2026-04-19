@@ -203,16 +203,17 @@ func applyDateIntervalFilters(cfg *model.Config, sinceDate string, untilDate str
 	if cfg == nil {
 		return nil
 	}
+	cfg.Location = time.Local
 
 	if strings.TrimSpace(sinceDate) != "" {
-		parsed, err := time.Parse("2006-01-02", sinceDate)
+		parsed, err := time.ParseInLocation("2006-01-02", sinceDate, time.Local)
 		if err != nil {
 			return fmt.Errorf("invalid since_date")
 		}
 		cfg.Since = parsed.UTC()
 	}
 	if strings.TrimSpace(untilDate) != "" {
-		parsed, err := time.Parse("2006-01-02", untilDate)
+		parsed, err := time.ParseInLocation("2006-01-02", untilDate, time.Local)
 		if err != nil {
 			return fmt.Errorf("invalid until_date")
 		}

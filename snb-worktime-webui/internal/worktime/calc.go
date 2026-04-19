@@ -22,6 +22,9 @@ func Summarize(snapshots []model.Snapshot, windows []model.ActivityWindow, cfg m
 	if cfg.MaxGap <= 0 {
 		cfg.MaxGap = 10 * time.Minute
 	}
+	if cfg.Location == nil {
+		cfg.Location = time.UTC
+	}
 
 	groupedSnapshots := make(map[identity][]model.Snapshot)
 	for _, snapshot := range snapshots {
@@ -59,7 +62,7 @@ func Summarize(snapshots []model.Snapshot, windows []model.ActivityWindow, cfg m
 			if rawDelta <= 0 {
 				continue
 			}
-			delta := timewindow.Duration(current.CapturedAt, next.CapturedAt, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes)
+			delta := timewindow.Duration(current.CapturedAt, next.CapturedAt, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes, cfg.Location)
 			if delta <= 0 {
 				continue
 			}
@@ -153,7 +156,7 @@ func overlapsActivity(snapshot model.Snapshot, end time.Time, cfg model.Config, 
 
 	for _, key := range keys {
 		for _, window := range index[key] {
-			if timewindow.Duration(maxTime(snapshot.CapturedAt, window.StartedAt), minTime(end, window.EndedAt), cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes) > 0 {
+			if timewindow.Duration(maxTime(snapshot.CapturedAt, window.StartedAt), minTime(end, window.EndedAt), cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes, cfg.Location) > 0 {
 				return true
 			}
 		}

@@ -169,3 +169,17 @@ The Linux audit currently produces a journal-based summary per server and user:
 - source list used for the row.
 
 This is an evidence-driven SSH/session audit, not an idle-aware desktop tracker. Without a Linux-side agent or shell history instrumentation, journal data can prove session presence and administrative activity, but not perfect keyboard-level active work time.
+
+## Calendar and interval controls
+
+The web UI now lets the operator:
+
+- choose the calculation date range with calendar inputs;
+- set default daily counting intervals, for example `09:00-18:00`;
+- save those default intervals in the browser;
+- optionally override the default interval for the current run only.
+
+The selected dates and effective interval are applied both to:
+
+- local worktime analysis from uploaded snapshots and activity windows;
+- remote Linux SSH audit results.

@@ -51,6 +51,50 @@
         </label>
       </div>
 
+      <div class="section-head subhead">
+        <h3>Calendar and Intervals</h3>
+        <span class="summary-meta">Shared by local analysis and Linux audit.</span>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          <span>From date</span>
+          <input id="filter-since-date" type="date">
+        </label>
+        <label>
+          <span>To date</span>
+          <input id="filter-until-date" type="date">
+        </label>
+        <label class="toggle-wrap">
+          <span>Operator override</span>
+          <input id="use-operator-interval" type="checkbox">
+        </label>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          <span>Default start</span>
+          <input id="default-interval-start" type="time" value="09:00">
+        </label>
+        <label>
+          <span>Default end</span>
+          <input id="default-interval-end" type="time" value="18:00">
+        </label>
+        <div></div>
+      </div>
+
+      <div class="form-grid operator-interval-grid">
+        <label>
+          <span>Operator start</span>
+          <input id="operator-interval-start" type="time" value="09:00">
+        </label>
+        <label>
+          <span>Operator end</span>
+          <input id="operator-interval-end" type="time" value="18:00">
+        </label>
+        <div class="interval-help" id="interval-effective-label">Effective interval: default 09:00-18:00.</div>
+      </div>
+
       <div class="input-grid">
         <div class="input-card">
           <div class="input-head">
@@ -183,17 +227,6 @@
       <div class="section-head">
         <h2>Linux Audit</h2>
         <span id="linux-audit-status" class="summary-meta">Use saved SSH targets.</span>
-      </div>
-
-      <div class="config-grid">
-        <label>
-          <span>Since</span>
-          <input id="linux-audit-since" type="datetime-local">
-        </label>
-        <label>
-          <span>Until</span>
-          <input id="linux-audit-until" type="datetime-local">
-        </label>
       </div>
 
       <div class="actions">

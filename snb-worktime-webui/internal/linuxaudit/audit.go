@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"snb-worktime-webui/internal/model"
+	"snb-worktime-webui/internal/timewindow"
 )
 
 type sessionWindow struct {
@@ -35,12 +36,12 @@ type sectionedOutput struct {
 	AuthLog  []string
 }
 
-func Audit(servers []model.LinuxServer, since time.Time, until time.Time) model.LinuxAuditResponse {
-	if until.IsZero() {
-		until = time.Now().UTC()
+func Audit(servers []model.LinuxServer, cfg model.Config) model.LinuxAuditResponse {
+	if cfg.Until.IsZero() {
+		cfg.Until = time.Now().UTC()
 	}
-	if since.IsZero() {
-		since = until.Add(-24 * time.Hour)
+	if cfg.Since.IsZero() {
+		cfg.Since = cfg.Until.Add(-24 * time.Hour)
 	}
 
 	response := model.LinuxAuditResponse{
@@ -50,7 +51,7 @@ func Audit(servers []model.LinuxServer, since time.Time, until time.Time) model.
 	}
 
 	for _, server := range servers {
-		rows, warnings, err := auditServer(server, since, until)
+		rows, warnings, err := auditServer(server, cfg)
 		if err != nil {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", server.NameOrHost(), err))
 			continue
@@ -73,15 +74,15 @@ func Audit(servers []model.LinuxServer, since time.Time, until time.Time) model.
 	return response
 }
 
-func auditServer(server model.LinuxServer, since time.Time, until time.Time) ([]model.LinuxAuditRow, []string, error) {
-	output, err := runRemoteAudit(server, since, until)
+func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAuditRow, []string, error) {
+	output, err := runRemoteAudit(server, cfg.Since, cfg.Until)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	sections := splitSections(output)
-	sessions := append(parseLastSessions(sections.Last, until), parseWhoSessions(sections.Who, until)...)
-	evidence := append(parseJournalEvidence(sections.Journal, since, until), parseAuthEvidence(sections.AuthLog, since, until)...)
+	sessions := append(parseLastSessions(sections.Last, cfg.Until), parseWhoSessions(sections.Who, cfg.Until)...)
+	evidence := append(parseJournalEvidence(sections.Journal, cfg.Since, cfg.Until), parseAuthEvidence(sections.AuthLog, cfg.Since, cfg.Until)...)
 
 	byUser := map[string]*aggregate{}
 	for _, session := range sessions {
@@ -93,18 +94,19 @@ func auditServer(server model.LinuxServer, since time.Time, until time.Time) ([]
 		agg.sessionCount++
 		agg.sources[session.Source] = struct{}{}
 
-		clippedStart, clippedEnd, ok := clipWindow(session.Started, session.Ended, since, until)
-		if !ok {
+		minutes := int64(timewindow.Duration(session.Started, session.Ended, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes) / time.Minute)
+		if minutes <= 0 {
 			continue
 		}
-		minutes := int64(clippedEnd.Sub(clippedStart) / time.Minute)
 		agg.sessionMinutes += minutes
 		if session.Open {
 			agg.openMinutes += minutes
 			agg.openSessions++
 		}
-		updateSeen(agg, clippedStart)
-		updateSeen(agg, clippedEnd)
+		if clippedStart, clippedEnd, ok := timewindow.Clip(session.Started, session.Ended, cfg.Since, cfg.Until); ok {
+			updateSeen(agg, clippedStart)
+			updateSeen(agg, clippedEnd)
+		}
 	}
 
 	for _, item := range evidence {
@@ -233,22 +235,6 @@ func updateSeen(agg *aggregate, moment time.Time) {
 	if agg.lastSeen.IsZero() || moment.After(agg.lastSeen) {
 		agg.lastSeen = moment
 	}
-}
-
-func clipWindow(start time.Time, end time.Time, since time.Time, until time.Time) (time.Time, time.Time, bool) {
-	if end.Before(since) || start.After(until) {
-		return time.Time{}, time.Time{}, false
-	}
-	if start.Before(since) {
-		start = since
-	}
-	if end.After(until) {
-		end = until
-	}
-	if !end.After(start) {
-		return time.Time{}, time.Time{}, false
-	}
-	return start, end, true
 }
 
 func humanMinutes(minutes int64) string {

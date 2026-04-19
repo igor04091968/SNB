@@ -64,6 +64,32 @@ func TestSummarize(t *testing.T) {
 	}
 }
 
+func TestSummarizeWithDateAndIntervalFilter(t *testing.T) {
+	snapshots, _, err := parser.ParseSnapshotsJSONL(strings.NewReader(sampleSnapshots))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rows := Summarize(snapshots, nil, model.Config{
+		ActiveIdleThreshold: time.Minute,
+		MaxGap:              10 * time.Minute,
+		Since:               time.Date(2026, 4, 18, 0, 0, 0, 0, time.UTC),
+		Until:               time.Date(2026, 4, 19, 0, 0, 0, 0, time.UTC),
+		DayStartMinutes:     9 * 60,
+		DayEndMinutes:       9*60 + 2,
+	})
+
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+	if rows[0].User != "alice" || rows[0].WorkedMinutes != 2 {
+		t.Fatalf("unexpected filtered alice row: %+v", rows[0])
+	}
+	if rows[1].User != "bob" || rows[1].WorkedMinutes != 2 {
+		t.Fatalf("unexpected filtered bob row: %+v", rows[1])
+	}
+}
+
 const sampleSnapshots = `{"server":"srv-1","user":"alice","session_id":"3","state":"active","idle_seconds":5,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:00:00Z"}
 {"server":"srv-1","user":"alice","session_id":"3","state":"active","idle_seconds":10,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:01:00Z"}
 {"server":"srv-1","user":"alice","session_id":"3","state":"active","idle_seconds":125,"client_ip":"10.0.0.10","captured_at":"2026-04-18T09:03:00Z"}

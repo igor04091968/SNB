@@ -31,6 +31,10 @@ type analyzeRequest struct {
 	ActivityWindowsText string `json:"activity_windows_text"`
 	IdleThresholdSec    int    `json:"idle_threshold_sec"`
 	MaxGapSec           int    `json:"max_gap_sec"`
+	SinceDate           string `json:"since_date"`
+	UntilDate           string `json:"until_date"`
+	IntervalStart       string `json:"interval_start"`
+	IntervalEnd         string `json:"interval_end"`
 }
 
 func NewHandler() http.Handler {
@@ -81,6 +85,10 @@ func (app *App) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	cfg := model.Config{
 		ActiveIdleThreshold: time.Duration(maxInt(req.IdleThresholdSec, 60)) * time.Second,
 		MaxGap:              time.Duration(maxInt(req.MaxGapSec, 600)) * time.Second,
+	}
+	if err := applyDateIntervalFilters(&cfg, req.SinceDate, req.UntilDate, req.IntervalStart, req.IntervalEnd); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	response := model.AnalyzeResponse{
@@ -157,7 +165,13 @@ func (app *App) handleLinuxAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, linuxaudit.Audit(servers, since, until))
+	cfg := model.Config{Since: since, Until: until}
+	if err := applyDateIntervalFilters(&cfg, req.SinceDate, req.UntilDate, req.IntervalStart, req.IntervalEnd); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, linuxaudit.Audit(servers, cfg))
 }
 
 func parseAuditWindow(req model.LinuxAuditRequest) (time.Time, time.Time, error) {
@@ -183,6 +197,57 @@ func parseAuditWindow(req model.LinuxAuditRequest) (time.Time, time.Time, error)
 		return time.Time{}, time.Time{}, fmt.Errorf("until must be after since")
 	}
 	return since, until, nil
+}
+
+func applyDateIntervalFilters(cfg *model.Config, sinceDate string, untilDate string, intervalStart string, intervalEnd string) error {
+	if cfg == nil {
+		return nil
+	}
+
+	if strings.TrimSpace(sinceDate) != "" {
+		parsed, err := time.Parse("2006-01-02", sinceDate)
+		if err != nil {
+			return fmt.Errorf("invalid since_date")
+		}
+		cfg.Since = parsed.UTC()
+	}
+	if strings.TrimSpace(untilDate) != "" {
+		parsed, err := time.Parse("2006-01-02", untilDate)
+		if err != nil {
+			return fmt.Errorf("invalid until_date")
+		}
+		cfg.Until = parsed.Add(24 * time.Hour).UTC()
+	}
+	if !cfg.Since.IsZero() && !cfg.Until.IsZero() && !cfg.Until.After(cfg.Since) {
+		return fmt.Errorf("until_date must be on or after since_date")
+	}
+
+	if strings.TrimSpace(intervalStart) == "" && strings.TrimSpace(intervalEnd) == "" {
+		return nil
+	}
+	startMinutes, err := parseClockMinutes(intervalStart)
+	if err != nil {
+		return fmt.Errorf("invalid interval_start")
+	}
+	endMinutes, err := parseClockMinutes(intervalEnd)
+	if err != nil {
+		return fmt.Errorf("invalid interval_end")
+	}
+	if endMinutes <= startMinutes {
+		return fmt.Errorf("interval_end must be after interval_start")
+	}
+
+	cfg.DayStartMinutes = startMinutes
+	cfg.DayEndMinutes = endMinutes
+	return nil
+}
+
+func parseClockMinutes(value string) (int, error) {
+	parsed, err := time.Parse("15:04", value)
+	if err != nil {
+		return 0, err
+	}
+	return parsed.Hour()*60 + parsed.Minute(), nil
 }
 
 func defaultServerStorePath() string {

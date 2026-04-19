@@ -29,6 +29,10 @@ type ActivityWindow struct {
 type Config struct {
 	ActiveIdleThreshold time.Duration
 	MaxGap              time.Duration
+	Since               time.Time
+	Until               time.Time
+	DayStartMinutes     int
+	DayEndMinutes       int
 }
 
 type Summary struct {
@@ -77,9 +81,13 @@ type LinuxServer struct {
 }
 
 type LinuxAuditRequest struct {
-	ServerIDs []string `json:"server_ids"`
-	Since     string   `json:"since"`
-	Until     string   `json:"until"`
+	ServerIDs     []string `json:"server_ids"`
+	Since         string   `json:"since"`
+	Until         string   `json:"until"`
+	SinceDate     string   `json:"since_date"`
+	UntilDate     string   `json:"until_date"`
+	IntervalStart string   `json:"interval_start"`
+	IntervalEnd   string   `json:"interval_end"`
 }
 
 type LinuxAuditRow struct {

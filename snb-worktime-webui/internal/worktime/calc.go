@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"snb-worktime-webui/internal/model"
+	"snb-worktime-webui/internal/timewindow"
 )
 
 type identity struct {
@@ -54,11 +55,15 @@ func Summarize(snapshots []model.Snapshot, windows []model.ActivityWindow, cfg m
 		for index := 0; index < len(group)-1; index++ {
 			current := group[index]
 			next := group[index+1]
-			delta := next.CapturedAt.Sub(current.CapturedAt)
+			rawDelta := next.CapturedAt.Sub(current.CapturedAt)
+			if rawDelta <= 0 {
+				continue
+			}
+			delta := timewindow.Duration(current.CapturedAt, next.CapturedAt, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes)
 			if delta <= 0 {
 				continue
 			}
-			if delta > cfg.MaxGap {
+			if rawDelta > cfg.MaxGap {
 				row.Unknown += delta
 				continue
 			}
@@ -67,7 +72,7 @@ func Summarize(snapshots []model.Snapshot, windows []model.ActivityWindow, cfg m
 			case "active":
 				if time.Duration(current.IdleSeconds)*time.Second <= cfg.ActiveIdleThreshold {
 					row.Worked += delta
-					if overlapsActivity(current, next.CapturedAt, windowIndex) {
+					if overlapsActivity(current, next.CapturedAt, cfg, windowIndex) {
 						row.Confirmed += delta
 					} else {
 						row.Unconfirmed += delta
@@ -135,7 +140,7 @@ func indexWindows(windows []model.ActivityWindow) map[identity][]model.ActivityW
 	return index
 }
 
-func overlapsActivity(snapshot model.Snapshot, end time.Time, index map[identity][]model.ActivityWindow) bool {
+func overlapsActivity(snapshot model.Snapshot, end time.Time, cfg model.Config, index map[identity][]model.ActivityWindow) bool {
 	keys := []identity{
 		{server: strings.TrimSpace(snapshot.Server), user: strings.ToLower(strings.TrimSpace(snapshot.User))},
 	}
@@ -148,12 +153,26 @@ func overlapsActivity(snapshot model.Snapshot, end time.Time, index map[identity
 
 	for _, key := range keys {
 		for _, window := range index[key] {
-			if snapshot.CapturedAt.Before(window.EndedAt) && end.After(window.StartedAt) {
+			if timewindow.Duration(maxTime(snapshot.CapturedAt, window.StartedAt), minTime(end, window.EndedAt), cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes) > 0 {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func maxTime(left time.Time, right time.Time) time.Time {
+	if left.After(right) {
+		return left
+	}
+	return right
+}
+
+func minTime(left time.Time, right time.Time) time.Time {
+	if left.Before(right) {
+		return left
+	}
+	return right
 }
 
 func normalizeState(value string) string {

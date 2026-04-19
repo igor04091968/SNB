@@ -33,9 +33,13 @@
 - `internal/web/handler.go`
   - serves embedded static assets
   - exposes `/api/health`, `/api/analyze`, `/api/linux-servers`, `/api/linux-audit`
+  - parses date-range and daily-interval filters from the UI
 - `internal/web/static/`
   - embedded browser UI
   - `index.html`, `app.js`, `styles.css`
+  - includes calendar-based date selection and default/operator interval controls
+- `internal/timewindow/`
+  - shared clipping logic for date ranges and per-day working intervals
 - `internal/parser/jsonl.go`
   - tolerant JSONL parsing for snapshots and activity windows
   - accepts multiple field aliases
@@ -65,6 +69,7 @@
 - Use the native WTS collector as the primary source for server-side RDP activity snapshots.
 - Use the native workstation heartbeat collector as the first confirmation layer from employee PCs.
 - Use SSH-based Linux log collection as the infrastructure-side audit path for Linux hosts.
+- Apply the same selected calendar range and effective daily interval to both local and Linux audit flows.
 - Keep parser input flexible because upstream Windows and workstation collectors may differ.
 - Keep the calculation transparent and auditable from raw events.
 

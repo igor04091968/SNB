@@ -27,6 +27,14 @@ const linuxAuditBody = document.getElementById("linux-audit-body");
 const linuxAuditWarnings = document.getElementById("linux-audit-warnings");
 const linuxAuditStatus = document.getElementById("linux-audit-status");
 const linuxAuditMeta = document.getElementById("linux-audit-meta");
+const filterSinceDate = document.getElementById("filter-since-date");
+const filterUntilDate = document.getElementById("filter-until-date");
+const defaultIntervalStart = document.getElementById("default-interval-start");
+const defaultIntervalEnd = document.getElementById("default-interval-end");
+const useOperatorInterval = document.getElementById("use-operator-interval");
+const operatorIntervalStart = document.getElementById("operator-interval-start");
+const operatorIntervalEnd = document.getElementById("operator-interval-end");
+const intervalEffectiveLabel = document.getElementById("interval-effective-label");
 
 const linuxServerId = document.getElementById("linux-server-id");
 const linuxName = document.getElementById("linux-name");
@@ -40,10 +48,9 @@ const linuxNotes = document.getElementById("linux-notes");
 const saveLinuxServerButton = document.getElementById("save-linux-server");
 const resetLinuxServerButton = document.getElementById("reset-linux-server");
 const runLinuxAuditButton = document.getElementById("run-linux-audit");
-const linuxAuditSince = document.getElementById("linux-audit-since");
-const linuxAuditUntil = document.getElementById("linux-audit-until");
 
 let linuxServers = [];
+const intervalStorageKey = "snb-worktime-interval-defaults";
 
 document.getElementById("snapshots-file").addEventListener("change", event => loadFileInto(event, snapshotsText));
 document.getElementById("activity-file").addEventListener("change", event => loadFileInto(event, activityText));
@@ -56,8 +63,15 @@ analyzeButton.addEventListener("click", analyze);
 saveLinuxServerButton.addEventListener("click", saveLinuxServer);
 resetLinuxServerButton.addEventListener("click", resetLinuxServerForm);
 runLinuxAuditButton.addEventListener("click", runLinuxAudit);
+defaultIntervalStart.addEventListener("change", persistDefaultIntervals);
+defaultIntervalEnd.addEventListener("change", persistDefaultIntervals);
+useOperatorInterval.addEventListener("change", updateEffectiveIntervalLabel);
+operatorIntervalStart.addEventListener("change", updateEffectiveIntervalLabel);
+operatorIntervalEnd.addEventListener("change", updateEffectiveIntervalLabel);
 
-setDefaultAuditWindow();
+hydrateIntervalDefaults();
+setDefaultDateRange();
+updateEffectiveIntervalLabel();
 loadLinuxServers();
 
 async function analyze() {
@@ -72,7 +86,11 @@ async function analyze() {
         snapshots_text: snapshotsText.value,
         activity_windows_text: activityText.value,
         idle_threshold_sec: Number(idleThreshold.value),
-        max_gap_sec: Number(maxGap.value)
+        max_gap_sec: Number(maxGap.value),
+        since_date: filterSinceDate.value,
+        until_date: filterUntilDate.value,
+        interval_start: effectiveInterval().start,
+        interval_end: effectiveInterval().end
       })
     });
 
@@ -273,8 +291,10 @@ async function runLinuxAudit() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         server_ids: selected,
-        since: toRFC3339(linuxAuditSince.value),
-        until: toRFC3339(linuxAuditUntil.value)
+        since_date: filterSinceDate.value,
+        until_date: filterUntilDate.value,
+        interval_start: effectiveInterval().start,
+        interval_end: effectiveInterval().end
       })
     });
     if (!response.ok) {
@@ -338,16 +358,16 @@ function describeAuth(server) {
   return escapeHtml(methods.join(" + ") || "none");
 }
 
-function setDefaultAuditWindow() {
+function setDefaultDateRange() {
   const now = new Date();
   const before = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  linuxAuditUntil.value = toDateTimeLocal(now);
-  linuxAuditSince.value = toDateTimeLocal(before);
+  filterUntilDate.value = toDateInput(now);
+  filterSinceDate.value = toDateInput(before);
 }
 
-function toDateTimeLocal(date) {
+function toDateInput(date) {
   const pad = value => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function toRFC3339(value) {
@@ -366,6 +386,50 @@ function formatDate(value) {
     return value;
   }
   return date.toLocaleString();
+}
+
+function persistDefaultIntervals() {
+  window.localStorage.setItem(intervalStorageKey, JSON.stringify({
+    start: defaultIntervalStart.value,
+    end: defaultIntervalEnd.value
+  }));
+  updateEffectiveIntervalLabel();
+}
+
+function hydrateIntervalDefaults() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(intervalStorageKey) || "{}");
+    if (saved.start) {
+      defaultIntervalStart.value = saved.start;
+      operatorIntervalStart.value = saved.start;
+    }
+    if (saved.end) {
+      defaultIntervalEnd.value = saved.end;
+      operatorIntervalEnd.value = saved.end;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function effectiveInterval() {
+  if (useOperatorInterval.checked) {
+    return {
+      start: operatorIntervalStart.value,
+      end: operatorIntervalEnd.value
+    };
+  }
+  return {
+    start: defaultIntervalStart.value,
+    end: defaultIntervalEnd.value
+  };
+}
+
+function updateEffectiveIntervalLabel() {
+  const effective = effectiveInterval();
+  intervalEffectiveLabel.textContent = useOperatorInterval.checked
+    ? `Effective interval: operator ${effective.start}-${effective.end}.`
+    : `Effective interval: default ${effective.start}-${effective.end}.`;
 }
 
 function escapeJs(value) {

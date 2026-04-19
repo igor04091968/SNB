@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"snb-worktime-webui/internal/model"
@@ -187,16 +188,16 @@ func runRemoteAudit(server model.LinuxServer, since time.Time, until time.Time) 
 }
 
 func sshConfig(server model.LinuxServer) (*ssh.ClientConfig, error) {
-	var methods []ssh.AuthMethod
-	if strings.TrimSpace(server.Password) != "" {
-		methods = append(methods, ssh.Password(server.Password))
-	}
+	methods := append([]ssh.AuthMethod{}, defaultAuthMethods()...)
 	if strings.TrimSpace(server.PrivateKeyPEM) != "" {
 		signer, err := parseSigner(server.PrivateKeyPEM, server.PrivateKeyPassphrase)
 		if err != nil {
 			return nil, err
 		}
-		methods = append(methods, ssh.PublicKeys(signer))
+		methods = append([]ssh.AuthMethod{ssh.PublicKeys(signer)}, methods...)
+	}
+	if strings.TrimSpace(server.Password) != "" {
+		methods = append(methods, ssh.Password(server.Password))
 	}
 	if len(methods) == 0 {
 		return nil, fmt.Errorf("no SSH auth configured for %s", server.NameOrHost())
@@ -213,6 +214,67 @@ func sshConfig(server model.LinuxServer) (*ssh.ClientConfig, error) {
 		HostKeyCallback: hostKeyCallback,
 		Timeout:         12 * time.Second,
 	}, nil
+}
+
+func defaultAuthMethods() []ssh.AuthMethod {
+	var methods []ssh.AuthMethod
+
+	if agentMethod := sshAgentAuthMethod(); agentMethod != nil {
+		methods = append(methods, agentMethod)
+	}
+	if keyMethod := localKeyAuthMethod(); keyMethod != nil {
+		methods = append(methods, keyMethod)
+	}
+
+	return methods
+}
+
+func sshAgentAuthMethod() ssh.AuthMethod {
+	socket := strings.TrimSpace(os.Getenv("SSH_AUTH_SOCK"))
+	if socket == "" {
+		return nil
+	}
+	conn, err := net.Dial("unix", socket)
+	if err != nil {
+		return nil
+	}
+	return ssh.PublicKeysCallback(agent.NewClient(conn).Signers)
+}
+
+func localKeyAuthMethod() ssh.AuthMethod {
+	signers := localPrivateKeySigners()
+	if len(signers) == 0 {
+		return nil
+	}
+	return ssh.PublicKeys(signers...)
+}
+
+func localPrivateKeySigners() []ssh.Signer {
+	homeDir, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(homeDir) == "" {
+		return nil
+	}
+
+	candidates := []string{
+		"id_ed25519",
+		"id_ecdsa",
+		"id_rsa",
+		"identity",
+	}
+	var signers []ssh.Signer
+	for _, name := range candidates {
+		path := filepath.Join(homeDir, ".ssh", name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		signer, err := ssh.ParsePrivateKey(data)
+		if err != nil {
+			continue
+		}
+		signers = append(signers, signer)
+	}
+	return signers
 }
 
 func defaultKnownHostsPath() string {

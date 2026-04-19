@@ -3,6 +3,8 @@ package linuxaudit
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"net"
 	"os"
 	"path/filepath"
@@ -73,4 +75,38 @@ func mustPublicKey(t *testing.T) ssh.PublicKey {
 		t.Fatalf("NewSignerFromKey() error = %v", err)
 	}
 	return signer.PublicKey()
+}
+
+func TestLocalPrivateKeySignersLoadsUserKey(t *testing.T) {
+	homeDir := t.TempDir()
+	sshDir := filepath.Join(homeDir, ".ssh")
+	if err := os.MkdirAll(sshDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	pemKey := mustPEMPrivateKey(t)
+	keyPath := filepath.Join(sshDir, "id_ed25519")
+	if err := os.WriteFile(keyPath, pemKey, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	t.Setenv("HOME", homeDir)
+	signers := localPrivateKeySigners()
+	if len(signers) != 1 {
+		t.Fatalf("localPrivateKeySigners() loaded %d signers, want 1", len(signers))
+	}
+}
+
+func mustPEMPrivateKey(t *testing.T) []byte {
+	t.Helper()
+
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey() error = %v", err)
+	}
+	encoded, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatalf("MarshalPKCS8PrivateKey() error = %v", err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: encoded})
 }

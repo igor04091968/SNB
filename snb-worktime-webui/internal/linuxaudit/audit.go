@@ -34,6 +34,7 @@ type evidenceEvent struct {
 
 type sectionedOutput struct {
 	HostName string
+	Passwd   []string
 	Last     []string
 	Who      []string
 	Journal  []string
@@ -85,8 +86,11 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 	}
 
 	sections := splitSections(output)
+	loginAccounts := parseLoginAccounts(sections.Passwd)
 	sessions := append(parseLastSessions(sections.Last, cfg.Until), parseWhoSessions(sections.Who, cfg.Until)...)
 	evidence := append(parseJournalEvidence(sections.Journal, cfg.Since, cfg.Until), parseAuthEvidence(sections.AuthLog, cfg.Since, cfg.Until)...)
+	sessions = filterSessionsByAccounts(sessions, loginAccounts)
+	evidence = filterEvidenceByAccounts(evidence, loginAccounts)
 
 	byUser := map[string]*aggregate{}
 	sessionCoverage := map[string][]sessionWindow{}
@@ -163,7 +167,7 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 		})
 	}
 
-	return rows, detectWarnings(sections), nil
+	return rows, append(detectWarnings(sections), detectAccountWarnings(loginAccounts)...), nil
 }
 
 func runRemoteAudit(server model.LinuxServer, since time.Time, until time.Time) (string, error) {

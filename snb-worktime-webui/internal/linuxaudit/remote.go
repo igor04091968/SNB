@@ -16,6 +16,8 @@ func buildRemoteCommand(since time.Time, until time.Time) string {
 		`if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then SUDO="sudo -n "; fi`,
 		`echo "__SECTION__:HOSTNAME"`,
 		`(hostnamectl --static 2>/dev/null || hostname 2>/dev/null || true)`,
+		`echo "__SECTION__:PASSWD"`,
+		`(getent passwd 2>/dev/null || cat /etc/passwd 2>/dev/null || true)`,
 		`echo "__SECTION__:LAST"`,
 		`(sh -lc "${SUDO}last -F -w --time-format iso 2>/dev/null" || sh -lc "${SUDO}last -F -w 2>/dev/null" || true)`,
 		`echo "__SECTION__:WHO"`,

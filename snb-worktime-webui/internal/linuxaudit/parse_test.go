@@ -55,3 +55,40 @@ func TestMergeSessionWindows(t *testing.T) {
 		t.Fatalf("unexpected merged window: %+v", merged[0])
 	}
 }
+
+func TestParseLoginAccountsFiltersSystemAndNoLoginUsers(t *testing.T) {
+	lines := []string{
+		"root:x:0:0:root:/root:/bin/bash",
+		"sshd:x:101:65534::/run/sshd:/usr/sbin/nologin",
+		"igor:x:1000:1000:Igor:/home/igor:/bin/bash",
+		"servicebot:x:999:999::/srv/service:/bin/bash",
+		"nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin",
+	}
+
+	accounts := parseLoginAccounts(lines)
+	if len(accounts) != 1 {
+		t.Fatalf("expected 1 login account, got %d: %+v", len(accounts), accounts)
+	}
+	if _, ok := accounts["igor"]; !ok {
+		t.Fatalf("expected igor in login accounts: %+v", accounts)
+	}
+}
+
+func TestFilterEvidenceByAccounts(t *testing.T) {
+	accounts := map[string]loginAccount{
+		"igor": {User: "igor", UID: 1000, Shell: "/bin/bash"},
+	}
+	evidence := []evidenceEvent{
+		{User: "root", At: time.Date(2026, 4, 19, 9, 0, 0, 0, time.UTC), Source: "journalctl"},
+		{User: "igor", At: time.Date(2026, 4, 19, 9, 5, 0, 0, time.UTC), Source: "journalctl"},
+		{User: "sshd", At: time.Date(2026, 4, 19, 9, 10, 0, 0, time.UTC), Source: "journalctl"},
+	}
+
+	filtered := filterEvidenceByAccounts(evidence, accounts)
+	if len(filtered) != 1 {
+		t.Fatalf("expected 1 filtered evidence event, got %d: %+v", len(filtered), filtered)
+	}
+	if filtered[0].User != "igor" {
+		t.Fatalf("unexpected filtered user: %+v", filtered[0])
+	}
+}

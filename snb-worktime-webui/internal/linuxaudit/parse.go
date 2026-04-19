@@ -1,8 +1,10 @@
 package linuxaudit
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -31,6 +33,8 @@ func splitSections(raw string) sectionedOutput {
 			switch strings.TrimPrefix(line, "__SECTION__:") {
 			case "HOSTNAME":
 				current = nil
+			case "PASSWD":
+				current = &output.Passwd
 			case "LAST":
 				current = &output.Last
 			case "WHO":
@@ -52,6 +56,132 @@ func splitSections(raw string) sectionedOutput {
 		}
 	}
 	return output
+}
+
+type loginAccount struct {
+	User  string
+	UID   int
+	Home  string
+	Shell string
+}
+
+func parseLoginAccounts(lines []string) map[string]loginAccount {
+	accounts := map[string]loginAccount{}
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		fields := strings.Split(line, ":")
+		if len(fields) < 7 {
+			continue
+		}
+		user := strings.TrimSpace(fields[0])
+		uid, err := strconv.Atoi(strings.TrimSpace(fields[2]))
+		if err != nil {
+			continue
+		}
+		home := strings.TrimSpace(fields[5])
+		shell := strings.TrimSpace(fields[6])
+		if !isInteractiveShell(shell) || isSystemUID(uid) || isSystemHome(home) {
+			continue
+		}
+		accounts[user] = loginAccount{
+			User:  user,
+			UID:   uid,
+			Home:  home,
+			Shell: shell,
+		}
+	}
+	return accounts
+}
+
+func isInteractiveShell(shell string) bool {
+	shell = strings.TrimSpace(shell)
+	if shell == "" {
+		return false
+	}
+	blocked := []string{
+		"/usr/sbin/nologin",
+		"/usr/bin/nologin",
+		"/sbin/nologin",
+		"/bin/nologin",
+		"/usr/bin/false",
+		"/bin/false",
+		"nologin",
+		"false",
+		"sync",
+		"shutdown",
+		"halt",
+	}
+	for _, item := range blocked {
+		if shell == item {
+			return false
+		}
+	}
+	return true
+}
+
+func isSystemUID(uid int) bool {
+	return uid < 1000
+}
+
+func isSystemHome(home string) bool {
+	home = strings.TrimSpace(home)
+	if home == "" {
+		return true
+	}
+	blocked := []string{"/nonexistent", "/var/empty", "/var/lib/nobody"}
+	for _, item := range blocked {
+		if home == item {
+			return true
+		}
+	}
+	return false
+}
+
+func filterSessionsByAccounts(sessions []sessionWindow, accounts map[string]loginAccount) []sessionWindow {
+	if len(accounts) == 0 {
+		return nil
+	}
+	var filtered []sessionWindow
+	for _, session := range sessions {
+		user := normalizeUser(session.User)
+		if _, ok := accounts[user]; !ok {
+			continue
+		}
+		session.User = user
+		filtered = append(filtered, session)
+	}
+	return filtered
+}
+
+func filterEvidenceByAccounts(evidence []evidenceEvent, accounts map[string]loginAccount) []evidenceEvent {
+	if len(accounts) == 0 {
+		return nil
+	}
+	var filtered []evidenceEvent
+	for _, item := range evidence {
+		user := normalizeUser(item.User)
+		if _, ok := accounts[user]; !ok {
+			continue
+		}
+		item.User = user
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
+func detectAccountWarnings(accounts map[string]loginAccount) []string {
+	if len(accounts) == 0 {
+		return []string{"no non-system shell accounts discovered via passwd"}
+	}
+	list := make([]string, 0, len(accounts))
+	for user := range accounts {
+		list = append(list, user)
+	}
+	sort.Strings(list)
+	return []string{fmt.Sprintf("linux audit limited to shell users: %s", strings.Join(list, ", "))}
 }
 
 func parseLastSessions(lines []string, until time.Time) []sessionWindow {

@@ -1,6 +1,7 @@
 package linuxaudit
 
 import (
+	"strconv"
 	"testing"
 	"time"
 )
@@ -90,5 +91,82 @@ func TestFilterEvidenceByAccounts(t *testing.T) {
 	}
 	if filtered[0].User != "igor" {
 		t.Fatalf("unexpected filtered user: %+v", filtered[0])
+	}
+}
+
+func TestParseHistoryEventsParsesBashAndZshTimestamps(t *testing.T) {
+	since := time.Date(2026, 4, 19, 8, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC)
+	accounts := map[string]loginAccount{
+		"igor": {User: "igor", UID: 1000, Home: "/home/igor", Shell: "/bin/bash"},
+	}
+	bashEpoch := strconv.FormatInt(time.Date(2026, 4, 19, 9, 0, 0, 0, time.UTC).Unix(), 10)
+	zshEpoch := strconv.FormatInt(time.Date(2026, 4, 19, 9, 30, 0, 0, time.UTC).Unix(), 10)
+	lines := []string{
+		"__HISTORY__:igor:/home/igor/.bash_history",
+		"#" + bashEpoch,
+		"ls -la",
+		"__HISTORY__:igor:/home/igor/.zsh_history",
+		": " + zshEpoch + ":0;git status",
+	}
+
+	events := parseHistoryEvents(lines, since, until, accounts)
+	if len(events) != 2 {
+		t.Fatalf("expected 2 history events, got %d: %+v", len(events), events)
+	}
+	if events[0].Source != "bash_history" || events[1].Source != "zsh_history" {
+		t.Fatalf("unexpected history sources: %+v", events)
+	}
+	if events[0].Command != "ls -la" || events[0].Category != actionCategoryShell {
+		t.Fatalf("unexpected bash event payload: %+v", events[0])
+	}
+	if events[1].Command != "git status" || events[1].Category != actionCategoryCoding {
+		t.Fatalf("unexpected zsh event payload: %+v", events[1])
+	}
+}
+
+func TestParseTmuxEventsParsesCreatedAndActivityEpochs(t *testing.T) {
+	since := time.Date(2026, 4, 19, 8, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC)
+	accounts := map[string]loginAccount{
+		"igor": {User: "igor", UID: 1000, Home: "/home/igor", Shell: "/bin/bash"},
+	}
+	created := strconv.FormatInt(time.Date(2026, 4, 19, 9, 0, 0, 0, time.UTC).Unix(), 10)
+	activity := strconv.FormatInt(time.Date(2026, 4, 19, 9, 12, 0, 0, time.UTC).Unix(), 10)
+	lines := []string{
+		"__TMUX__:igor:/tmp/tmux-1000/default",
+		created + "|" + activity + "|1|work",
+	}
+
+	events := parseTmuxEvents(lines, since, until, accounts)
+	if len(events) != 2 {
+		t.Fatalf("expected 2 tmux events, got %d: %+v", len(events), events)
+	}
+	if events[0].Source != "tmux" || events[1].Source != "tmux" {
+		t.Fatalf("unexpected tmux sources: %+v", events)
+	}
+	if !events[0].At.Equal(time.Date(2026, 4, 19, 9, 0, 0, 0, time.UTC)) || !events[1].At.Equal(time.Date(2026, 4, 19, 9, 12, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected tmux timestamps: %+v", events)
+	}
+	if events[0].Category != actionCategoryShell || events[0].Command == "" {
+		t.Fatalf("unexpected tmux payload: %+v", events[0])
+	}
+}
+
+func TestClassifyCommandDistinguishesCodingAndConfig(t *testing.T) {
+	category, paths := classifyCommand("vim /etc/nginx/nginx.conf")
+	if category != actionCategoryConfig {
+		t.Fatalf("expected config category, got %q", category)
+	}
+	if len(paths) != 1 || paths[0] != "/etc/nginx/nginx.conf" {
+		t.Fatalf("unexpected config paths: %+v", paths)
+	}
+
+	category, paths = classifyCommand("go test ./internal/linuxaudit")
+	if category != actionCategoryCoding {
+		t.Fatalf("expected coding category, got %q", category)
+	}
+	if len(paths) != 1 || paths[0] != "./internal/linuxaudit" {
+		t.Fatalf("unexpected coding paths: %+v", paths)
 	}
 }

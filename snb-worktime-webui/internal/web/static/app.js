@@ -219,6 +219,10 @@ function renderLinuxAuditHRReport(payload) {
   const evidenceRows = rows.filter(row => !(row.has_sessions || Number(row.session_minutes || 0) > 0 || Number(row.session_count || 0) > 0));
 
   const totalSessionMinutes = sessionRows.reduce((sum, row) => sum + Number(row.session_minutes || 0), 0);
+  const totalCommandMinutes = sessionRows.reduce((sum, row) => sum + Number(row.command_minutes || 0), 0);
+  const totalCodingMinutes = sessionRows.reduce((sum, row) => sum + Number(row.coding_minutes || 0), 0);
+  const totalConfigMinutes = sessionRows.reduce((sum, row) => sum + Number(row.config_minutes || 0), 0);
+  const totalActions = sessionRows.reduce((sum, row) => sum + Number(row.command_count || 0), 0);
   const totalOpenMinutes = sessionRows.reduce((sum, row) => sum + Number(row.open_minutes || 0), 0);
   const totalEvidence = rows.reduce((sum, row) => sum + Number(row.evidence_count || 0), 0);
 
@@ -231,6 +235,10 @@ function renderLinuxAuditHRReport(payload) {
     `Служебных учетных записей без сессий: ${evidenceRows.length}`,
     "",
     `Общее время сессий: ${humanizeMinutes(totalSessionMinutes)}`,
+    `Подтвержденная работа в оболочке: ${humanizeMinutes(totalCommandMinutes)}`,
+    `Подтвержденная разработка: ${humanizeMinutes(totalCodingMinutes)}`,
+    `Подтвержденная работа с конфигами: ${humanizeMinutes(totalConfigMinutes)}`,
+    `Подтвержденных действий: ${totalActions}`,
     `Сейчас открыто: ${humanizeMinutes(totalOpenMinutes)}`,
     `Всего событий: ${totalEvidence}`,
     ""
@@ -239,10 +247,36 @@ function renderLinuxAuditHRReport(payload) {
   if (sessionRows.length) {
     lines.push("Рабочие учетные записи:");
     for (const row of sessionRows) {
-      lines.push(`${row.user} | сервер=${row.server || "-"} | сессии=${row.session_human} | открыто=${row.open_human} | сессий=${row.session_count}/${row.open_sessions} | событий=${row.evidence_count} | источники=${row.source_summary || "-"} | первое=${formatDate(row.first_seen)} | последнее=${formatDate(row.last_seen)}`);
+      lines.push(`${row.user} | сервер=${row.server || "-"} | сессии=${row.session_human} | оболочка=${row.command_human || "0m"} | разработка=${row.coding_human || "0m"} | конфиги=${row.config_human || "0m"} | действий=${row.command_count || 0} | открыто=${row.open_human} | сессий=${row.session_count}/${row.open_sessions} | событий=${row.evidence_count} | источники=${row.source_summary || "-"} | первое=${formatDate(row.first_seen)} | последнее=${formatDate(row.last_seen)}`);
       if (Array.isArray(row.intervals) && row.intervals.length) {
+        lines.push("  SSH-сессии:");
         for (const interval of row.intervals) {
           lines.push(`  - ${formatDate(interval.started_at)} -> ${formatDate(interval.ended_at)} | ${interval.duration_human}${interval.open ? " | открыта" : ""} | ${interval.source_summary || "-"}`);
+        }
+      }
+      if (Array.isArray(row.command_windows) && row.command_windows.length) {
+        lines.push("  Подтвержденные интервалы в оболочке:");
+        for (const interval of row.command_windows) {
+          lines.push(`  - ${formatDate(interval.started_at)} -> ${formatDate(interval.ended_at)} | ${interval.duration_human} | ${interval.source_summary || "-"}`);
+        }
+      }
+      if (Array.isArray(row.coding_windows) && row.coding_windows.length) {
+        lines.push("  Интервалы разработки:");
+        for (const interval of row.coding_windows) {
+          lines.push(`  - ${formatDate(interval.started_at)} -> ${formatDate(interval.ended_at)} | ${interval.duration_human} | ${interval.source_summary || "-"}`);
+        }
+      }
+      if (Array.isArray(row.config_windows) && row.config_windows.length) {
+        lines.push("  Интервалы работы с конфигами:");
+        for (const interval of row.config_windows) {
+          lines.push(`  - ${formatDate(interval.started_at)} -> ${formatDate(interval.ended_at)} | ${interval.duration_human} | ${interval.source_summary || "-"}`);
+        }
+      }
+      if (Array.isArray(row.actions) && row.actions.length) {
+        lines.push("  Подтвержденные действия:");
+        for (const action of row.actions) {
+          const pathText = Array.isArray(action.paths) && action.paths.length ? ` | пути=${action.paths.join("; ")}` : "";
+          lines.push(`  - ${formatDate(action.at)} | ${describeLinuxAuditCategory(action.category)} | ${action.summary || "-"} | ${action.source || "-"}${pathText}`);
         }
       }
     }
@@ -330,6 +364,15 @@ function buildLinuxAuditHRReportCSV(rows, payload, period, effective) {
     "has_sessions",
     "session_human",
     "session_minutes",
+    "command_human",
+    "command_minutes",
+    "command_count",
+    "coding_human",
+    "coding_minutes",
+    "coding_count",
+    "config_human",
+    "config_minutes",
+    "config_count",
     "open_human",
     "open_minutes",
     "session_count",
@@ -361,6 +404,15 @@ function buildLinuxAuditHRReportCSV(rows, payload, period, effective) {
         row.has_sessions ? "yes" : "no",
         row.session_human || "",
         row.session_minutes || 0,
+        row.command_human || "",
+        row.command_minutes || 0,
+        row.command_count || 0,
+        row.coding_human || "",
+        row.coding_minutes || 0,
+        row.coding_count || 0,
+        row.config_human || "",
+        row.config_minutes || 0,
+        row.config_count || 0,
         row.open_human || "",
         row.open_minutes || 0,
         row.session_count || 0,
@@ -620,7 +672,7 @@ async function runLinuxAudit() {
 
 function renderLinuxAuditRows(rows) {
   if (!rows.length) {
-    linuxAuditBody.innerHTML = `<tr><td colspan="10" class="empty-state">Нет строк по Linux-аудиту.</td></tr>`;
+    linuxAuditBody.innerHTML = `<tr><td colspan="14" class="empty-state">Нет строк по Linux-аудиту.</td></tr>`;
     return;
   }
 
@@ -629,6 +681,10 @@ function renderLinuxAuditRows(rows) {
       <td>${escapeHtml(row.server)}</td>
       <td>${escapeHtml(row.user)}</td>
       <td>${escapeHtml(row.session_human)}</td>
+      <td>${escapeHtml(row.command_human || "0m")}</td>
+      <td>${escapeHtml(row.coding_human || "0m")} / ${escapeHtml(String(row.coding_count || 0))}</td>
+      <td>${escapeHtml(row.config_human || "0m")} / ${escapeHtml(String(row.config_count || 0))}</td>
+      <td>${escapeHtml(String(row.command_count || 0))}</td>
       <td>${escapeHtml(row.open_human)}</td>
       <td>${escapeHtml(String(row.session_count))} / ${escapeHtml(String(row.open_sessions))}</td>
       <td>${escapeHtml(String(row.evidence_count))}</td>
@@ -645,18 +701,48 @@ function renderLinuxAuditTimeline(row) {
     return `<span class="summary-meta">Есть только события. Рабочие интервалы не найдены.</span>`;
   }
 
-  const items = row.intervals.map(interval => {
+  const sessionItems = row.intervals.map(interval => {
     const source = interval.source_summary ? `, источник: ${escapeHtml(interval.source_summary)}` : "";
     const openMark = interval.open ? " открыта" : "";
-    return `<div>${escapeHtml(formatDate(interval.started_at))} -> ${escapeHtml(formatDate(interval.ended_at))} (${escapeHtml(interval.duration_human)}${openMark})${source}</div>`;
+    return `<div>SSH: ${escapeHtml(formatDate(interval.started_at))} -> ${escapeHtml(formatDate(interval.ended_at))} (${escapeHtml(interval.duration_human)}${openMark})${source}</div>`;
   }).join("");
+  const shellItems = Array.isArray(row.command_windows) && row.command_windows.length
+    ? row.command_windows.map(interval => `<div>Оболочка: ${escapeHtml(formatDate(interval.started_at))} -> ${escapeHtml(formatDate(interval.ended_at))} (${escapeHtml(interval.duration_human)})${interval.source_summary ? `, источник: ${escapeHtml(interval.source_summary)}` : ""}</div>`).join("")
+    : `<div class="summary-meta">Подтвержденные интервалы в оболочке не найдены.</div>`;
+  const codingItems = Array.isArray(row.coding_windows) && row.coding_windows.length
+    ? row.coding_windows.map(interval => `<div>Разработка: ${escapeHtml(formatDate(interval.started_at))} -> ${escapeHtml(formatDate(interval.ended_at))} (${escapeHtml(interval.duration_human)})${interval.source_summary ? `, источник: ${escapeHtml(interval.source_summary)}` : ""}</div>`).join("")
+    : "";
+  const configItems = Array.isArray(row.config_windows) && row.config_windows.length
+    ? row.config_windows.map(interval => `<div>Конфиги: ${escapeHtml(formatDate(interval.started_at))} -> ${escapeHtml(formatDate(interval.ended_at))} (${escapeHtml(interval.duration_human)})${interval.source_summary ? `, источник: ${escapeHtml(interval.source_summary)}` : ""}</div>`).join("")
+    : "";
+  const actionItems = Array.isArray(row.actions) && row.actions.length
+    ? row.actions.map(action => {
+      const pathText = Array.isArray(action.paths) && action.paths.length ? `, пути: ${escapeHtml(action.paths.join(", "))}` : "";
+      return `<div>Действие: ${escapeHtml(formatDate(action.at))} | ${escapeHtml(describeLinuxAuditCategory(action.category))} | ${escapeHtml(action.summary || "-")} | ${escapeHtml(action.source || "-")}${pathText}</div>`;
+    }).join("")
+    : `<div class="summary-meta">Подтвержденные действия не найдены.</div>`;
 
   return `
     <details>
-      <summary>Интервалов: ${escapeHtml(String(row.intervals.length))}</summary>
-      ${items}
+      <summary>Сессии: ${escapeHtml(String(row.intervals.length))}, оболочка: ${escapeHtml(String((row.command_windows || []).length))}, действий: ${escapeHtml(String((row.actions || []).length))}</summary>
+      ${sessionItems}
+      ${shellItems}
+      ${codingItems}
+      ${configItems}
+      ${actionItems}
     </details>
   `;
+}
+
+function describeLinuxAuditCategory(category) {
+  switch (category) {
+    case "coding":
+      return "разработка";
+    case "config":
+      return "конфиги";
+    default:
+      return "оболочка";
+  }
 }
 
 function renderBoxWarnings(element, warnings) {

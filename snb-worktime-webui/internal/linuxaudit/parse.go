@@ -13,6 +13,8 @@ var (
 	lastTimePattern    = regexp.MustCompile(`\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+\-]\d{4}`)
 	journalTimePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\+\d{2}:\d{2}|Z)`)
 	authTimePattern    = regexp.MustCompile(`^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}`)
+	bashEpochPattern   = regexp.MustCompile(`^#(\d{9,})$`)
+	zshHistoryPattern  = regexp.MustCompile(`^: (\d{9,}):\d+;(.*)$`)
 	userPatterns       = []*regexp.Regexp{
 		regexp.MustCompile(`Accepted \S+ for ([A-Za-z0-9._-]+)`),
 		regexp.MustCompile(`session opened for user ([A-Za-z0-9._-]+)`),
@@ -43,6 +45,10 @@ func splitSections(raw string) sectionedOutput {
 				current = &output.Journal
 			case "AUTHLOG":
 				current = &output.AuthLog
+			case "HISTORY":
+				current = &output.History
+			case "TMUX":
+				current = &output.Tmux
 			}
 			continue
 		}
@@ -277,6 +283,397 @@ func parseAuthEvidence(lines []string, since time.Time, until time.Time) []evide
 		parsed = parsed.AddDate(since.Year()-parsed.Year(), 0, 0)
 		return parsed.UTC(), true
 	})
+}
+
+func parseHistoryEvents(lines []string, since time.Time, until time.Time, accounts map[string]loginAccount) []commandEvent {
+	if len(lines) == 0 || len(accounts) == 0 {
+		return nil
+	}
+
+	var (
+		events       []commandEvent
+		currentUser  string
+		currentFile  string
+		pendingEpoch int64
+	)
+
+	for _, raw := range lines {
+		line := strings.TrimRight(raw, "\r")
+		if strings.HasPrefix(line, "__HISTORY__:") {
+			currentUser, currentFile = parseHistoryHeader(strings.TrimPrefix(line, "__HISTORY__:"))
+			pendingEpoch = 0
+			continue
+		}
+		if currentUser == "" || currentFile == "" {
+			continue
+		}
+		user := normalizeUser(currentUser)
+		if _, ok := accounts[user]; !ok {
+			continue
+		}
+		for _, event := range parseHistoryLine(user, currentFile, line, &pendingEpoch) {
+			if event.At.Before(since) || event.At.After(until) {
+				continue
+			}
+			events = append(events, event)
+		}
+	}
+
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].At.Equal(events[j].At) {
+			if events[i].User == events[j].User {
+				return events[i].Source < events[j].Source
+			}
+			return events[i].User < events[j].User
+		}
+		return events[i].At.Before(events[j].At)
+	})
+	return events
+}
+
+func parseTmuxEvents(lines []string, since time.Time, until time.Time, accounts map[string]loginAccount) []commandEvent {
+	if len(lines) == 0 || len(accounts) == 0 {
+		return nil
+	}
+
+	var (
+		events      []commandEvent
+		currentUser string
+	)
+
+	for _, raw := range lines {
+		line := strings.TrimSpace(strings.TrimRight(raw, "\r"))
+		if strings.HasPrefix(line, "__TMUX__:") {
+			currentUser = parseTmuxHeader(strings.TrimPrefix(line, "__TMUX__:"))
+			continue
+		}
+		if currentUser == "" {
+			continue
+		}
+		user := normalizeUser(currentUser)
+		if _, ok := accounts[user]; !ok {
+			continue
+		}
+		for _, event := range parseTmuxLine(user, line) {
+			if event.At.Before(since) || event.At.After(until) {
+				continue
+			}
+			events = append(events, event)
+		}
+	}
+
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].At.Equal(events[j].At) {
+			if events[i].User == events[j].User {
+				return events[i].Source < events[j].Source
+			}
+			return events[i].User < events[j].User
+		}
+		return events[i].At.Before(events[j].At)
+	})
+	return events
+}
+
+func parseHistoryHeader(value string) (string, string) {
+	user, path, found := strings.Cut(value, ":")
+	if !found {
+		return "", ""
+	}
+	return strings.TrimSpace(user), strings.TrimSpace(path)
+}
+
+func parseHistoryLine(user string, file string, line string, pendingEpoch *int64) []commandEvent {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return nil
+	}
+
+	if match := bashEpochPattern.FindStringSubmatch(line); len(match) > 1 {
+		epoch, err := strconv.ParseInt(match[1], 10, 64)
+		if err == nil {
+			*pendingEpoch = epoch
+		}
+		return nil
+	}
+
+	if match := zshHistoryPattern.FindStringSubmatch(line); len(match) > 1 {
+		epoch, err := strconv.ParseInt(match[1], 10, 64)
+		if err != nil {
+			return nil
+		}
+		command := ""
+		if len(match) > 2 {
+			command = strings.TrimSpace(match[2])
+		}
+		category, paths := classifyCommand(command)
+		return []commandEvent{{
+			User:     user,
+			At:       time.Unix(epoch, 0).UTC(),
+			Source:   historySource(file),
+			Command:  command,
+			Category: category,
+			Paths:    paths,
+		}}
+	}
+
+	if *pendingEpoch == 0 {
+		return nil
+	}
+
+	category, paths := classifyCommand(line)
+	event := commandEvent{
+		User:     user,
+		At:       time.Unix(*pendingEpoch, 0).UTC(),
+		Source:   historySource(file),
+		Command:  line,
+		Category: category,
+		Paths:    paths,
+	}
+	*pendingEpoch = 0
+	return []commandEvent{event}
+}
+
+func historySource(path string) string {
+	switch {
+	case strings.HasSuffix(path, ".zsh_history"):
+		return "zsh_history"
+	default:
+		return "bash_history"
+	}
+}
+
+func parseTmuxHeader(value string) string {
+	user, _, _ := strings.Cut(value, ":")
+	return strings.TrimSpace(user)
+}
+
+func parseTmuxLine(user string, line string) []commandEvent {
+	if line == "" {
+		return nil
+	}
+
+	fields := strings.SplitN(line, "|", 4)
+	if len(fields) < 2 {
+		return nil
+	}
+
+	seen := map[int64]struct{}{}
+	var events []commandEvent
+	sessionName := ""
+	if len(fields) > 3 {
+		sessionName = strings.TrimSpace(fields[3])
+	}
+	summary := "tmux session activity"
+	if sessionName != "" {
+		summary = "tmux session: " + sessionName
+	}
+	for _, raw := range fields[:2] {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		epoch, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || epoch <= 0 {
+			continue
+		}
+		if _, ok := seen[epoch]; ok {
+			continue
+		}
+		seen[epoch] = struct{}{}
+		events = append(events, commandEvent{
+			User:     user,
+			At:       time.Unix(epoch, 0).UTC(),
+			Source:   "tmux",
+			Command:  summary,
+			Category: actionCategoryShell,
+		})
+	}
+	return events
+}
+
+const (
+	actionCategoryShell  = "shell"
+	actionCategoryCoding = "coding"
+	actionCategoryConfig = "config"
+)
+
+func classifyCommand(command string) (string, []string) {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return actionCategoryShell, nil
+	}
+
+	paths := extractCommandPaths(command)
+	lower := strings.ToLower(command)
+
+	if isConfigCommand(lower, paths) {
+		return actionCategoryConfig, paths
+	}
+	if isCodingCommand(lower, paths) {
+		return actionCategoryCoding, paths
+	}
+	return actionCategoryShell, paths
+}
+
+func isCodingCommand(lower string, paths []string) bool {
+	codingPrefixes := []string{
+		"git ", "go ", "npm ", "yarn ", "pnpm ", "make ", "cmake ", "cargo ",
+		"pytest", "python ", "python3 ", "pip ", "pip3 ", "node ", "npx ",
+		"composer ", "bundle ", "gradle ", "mvn ", "javac ", "gcc ", "g++ ",
+		"clang ", "clang++ ", "rustc ", "phpunit", "rails ", "mix ", "deno ",
+	}
+	for _, prefix := range codingPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+
+	editorPrefixes := []string{"vim ", "vi ", "nvim ", "nano ", "emacs ", "code ", "sed -i", "tee ", "cat >"}
+	for _, prefix := range editorPrefixes {
+		if strings.HasPrefix(lower, prefix) && hasCodePath(paths) {
+			return true
+		}
+	}
+
+	return hasCodePath(paths)
+}
+
+func isConfigCommand(lower string, paths []string) bool {
+	configPrefixes := []string{
+		"systemctl ", "service ", "nginx ", "apachectl ", "httpd ", "a2en", "a2dis",
+		"asterisk ", "fwconsole ", "supervisorctl ", "netplan ", "ufw ", "iptables ",
+		"firewall-cmd ", "crontab ", "visudo", "sudoedit ", "sysctl ",
+	}
+	for _, prefix := range configPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+
+	editorPrefixes := []string{"vim ", "vi ", "nvim ", "nano ", "emacs ", "sed -i", "tee ", "cat >"}
+	for _, prefix := range editorPrefixes {
+		if strings.HasPrefix(lower, prefix) && hasConfigPath(paths) {
+			return true
+		}
+	}
+
+	return hasConfigPath(paths)
+}
+
+func extractCommandPaths(command string) []string {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return nil
+	}
+
+	seen := map[string]struct{}{}
+	var paths []string
+	for _, field := range fields {
+		token := normalizeCommandToken(field)
+		if token == "" || strings.HasPrefix(token, "-") {
+			continue
+		}
+		if !looksLikePath(token) {
+			continue
+		}
+		if _, ok := seen[token]; ok {
+			continue
+		}
+		seen[token] = struct{}{}
+		paths = append(paths, token)
+		if len(paths) >= 8 {
+			break
+		}
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+func normalizeCommandToken(token string) string {
+	token = strings.TrimSpace(token)
+	token = strings.Trim(token, "\"'")
+	token = strings.TrimRight(token, ",;:()[]{}")
+	token = strings.TrimLeft(token, "><")
+	return token
+}
+
+func looksLikePath(token string) bool {
+	if token == "" {
+		return false
+	}
+	if strings.HasPrefix(token, "/") || strings.HasPrefix(token, "~/") || strings.HasPrefix(token, "./") || strings.HasPrefix(token, "../") {
+		return true
+	}
+	if strings.Contains(token, "/") {
+		return true
+	}
+	return strings.Contains(token, ".")
+}
+
+func hasCodePath(paths []string) bool {
+	for _, path := range paths {
+		lower := strings.ToLower(path)
+		switch {
+		case strings.HasSuffix(lower, ".go"),
+			strings.HasSuffix(lower, ".js"),
+			strings.HasSuffix(lower, ".ts"),
+			strings.HasSuffix(lower, ".tsx"),
+			strings.HasSuffix(lower, ".jsx"),
+			strings.HasSuffix(lower, ".py"),
+			strings.HasSuffix(lower, ".rb"),
+			strings.HasSuffix(lower, ".php"),
+			strings.HasSuffix(lower, ".java"),
+			strings.HasSuffix(lower, ".c"),
+			strings.HasSuffix(lower, ".cc"),
+			strings.HasSuffix(lower, ".cpp"),
+			strings.HasSuffix(lower, ".h"),
+			strings.HasSuffix(lower, ".hpp"),
+			strings.HasSuffix(lower, ".rs"),
+			strings.HasSuffix(lower, ".sh"),
+			strings.HasSuffix(lower, ".sql"),
+			strings.HasSuffix(lower, ".html"),
+			strings.HasSuffix(lower, ".css"),
+			strings.HasSuffix(lower, ".scss"),
+			strings.HasSuffix(lower, ".tf"),
+			strings.HasSuffix(lower, ".proto"),
+			strings.HasSuffix(lower, "dockerfile"),
+			strings.HasSuffix(lower, "makefile"):
+			return true
+		}
+	}
+	return false
+}
+
+func hasConfigPath(paths []string) bool {
+	for _, path := range paths {
+		lower := strings.ToLower(path)
+		switch {
+		case strings.HasPrefix(lower, "/etc/"),
+			strings.Contains(lower, "/conf/"),
+			strings.Contains(lower, "/config/"),
+			strings.HasSuffix(lower, ".conf"),
+			strings.HasSuffix(lower, ".cfg"),
+			strings.HasSuffix(lower, ".cnf"),
+			strings.HasSuffix(lower, ".ini"),
+			strings.HasSuffix(lower, ".yaml"),
+			strings.HasSuffix(lower, ".yml"),
+			strings.HasSuffix(lower, ".json"),
+			strings.HasSuffix(lower, ".toml"),
+			strings.HasSuffix(lower, ".env"),
+			strings.HasSuffix(lower, ".service"),
+			strings.HasSuffix(lower, ".socket"),
+			strings.HasSuffix(lower, ".timer"),
+			strings.HasSuffix(lower, ".target"),
+			strings.HasSuffix(lower, ".properties"),
+			strings.HasSuffix(lower, ".xml"),
+			strings.HasSuffix(lower, "nginx.conf"),
+			strings.HasSuffix(lower, "httpd.conf"),
+			strings.HasSuffix(lower, "pjsip.conf"),
+			strings.HasSuffix(lower, "extensions.conf"):
+			return true
+		}
+	}
+	return false
 }
 
 func parseEvidence(lines []string, since time.Time, until time.Time, source string, parseTime func(string) (time.Time, bool)) []evidenceEvent {

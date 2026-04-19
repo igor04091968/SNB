@@ -96,9 +96,18 @@ type LinuxAuditRow struct {
 	User           string               `json:"user"`
 	SessionMinutes int64                `json:"session_minutes"`
 	SessionHuman   string               `json:"session_human"`
+	CommandMinutes int64                `json:"command_minutes"`
+	CommandHuman   string               `json:"command_human"`
+	CodingMinutes  int64                `json:"coding_minutes"`
+	CodingHuman    string               `json:"coding_human"`
+	ConfigMinutes  int64                `json:"config_minutes"`
+	ConfigHuman    string               `json:"config_human"`
 	OpenMinutes    int64                `json:"open_minutes"`
 	OpenHuman      string               `json:"open_human"`
 	SessionCount   int                  `json:"session_count"`
+	CommandCount   int                  `json:"command_count"`
+	CodingCount    int                  `json:"coding_count"`
+	ConfigCount    int                  `json:"config_count"`
 	OpenSessions   int                  `json:"open_sessions"`
 	EvidenceCount  int                  `json:"evidence_count"`
 	SourceSummary  string               `json:"source_summary"`
@@ -106,6 +115,10 @@ type LinuxAuditRow struct {
 	LastSeen       string               `json:"last_seen,omitempty"`
 	HasSessions    bool                 `json:"has_sessions"`
 	Intervals      []LinuxAuditInterval `json:"intervals,omitempty"`
+	CommandWindows []LinuxAuditInterval `json:"command_windows,omitempty"`
+	CodingWindows  []LinuxAuditInterval `json:"coding_windows,omitempty"`
+	ConfigWindows  []LinuxAuditInterval `json:"config_windows,omitempty"`
+	Actions        []LinuxAuditAction   `json:"actions,omitempty"`
 }
 
 type LinuxAuditResponse struct {
@@ -122,6 +135,14 @@ type LinuxAuditInterval struct {
 	DurationHuman   string `json:"duration_human"`
 	Open            bool   `json:"open"`
 	SourceSummary   string `json:"source_summary"`
+}
+
+type LinuxAuditAction struct {
+	At       string   `json:"at"`
+	Category string   `json:"category"`
+	Summary  string   `json:"summary"`
+	Source   string   `json:"source"`
+	Paths    []string `json:"paths,omitempty"`
 }
 
 func (server LinuxServer) NameOrHost() string {

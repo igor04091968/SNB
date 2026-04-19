@@ -18,6 +18,11 @@ import (
 	"snb-worktime-webui/internal/timewindow"
 )
 
+const (
+	commandActivityGap = 15 * time.Minute
+	commandPointWindow = time.Minute
+)
+
 type sessionWindow struct {
 	User    string
 	Started time.Time
@@ -32,6 +37,15 @@ type evidenceEvent struct {
 	Source string
 }
 
+type commandEvent struct {
+	User     string
+	At       time.Time
+	Source   string
+	Command  string
+	Category string
+	Paths    []string
+}
+
 type sectionedOutput struct {
 	HostName string
 	Passwd   []string
@@ -39,6 +53,8 @@ type sectionedOutput struct {
 	Who      []string
 	Journal  []string
 	AuthLog  []string
+	History  []string
+	Tmux     []string
 }
 
 func Audit(servers []model.LinuxServer, cfg model.Config) model.LinuxAuditResponse {
@@ -71,10 +87,13 @@ func Audit(servers []model.LinuxServer, cfg model.Config) model.LinuxAuditRespon
 
 	sort.Slice(response.Rows, func(i, j int) bool {
 		if response.Rows[i].SessionMinutes == response.Rows[j].SessionMinutes {
-			if response.Rows[i].Server == response.Rows[j].Server {
-				return response.Rows[i].User < response.Rows[j].User
+			if response.Rows[i].CommandMinutes == response.Rows[j].CommandMinutes {
+				if response.Rows[i].Server == response.Rows[j].Server {
+					return response.Rows[i].User < response.Rows[j].User
+				}
+				return response.Rows[i].Server < response.Rows[j].Server
 			}
-			return response.Rows[i].Server < response.Rows[j].Server
+			return response.Rows[i].CommandMinutes > response.Rows[j].CommandMinutes
 		}
 		return response.Rows[i].SessionMinutes > response.Rows[j].SessionMinutes
 	})
@@ -92,11 +111,16 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 	loginAccounts := parseLoginAccounts(sections.Passwd)
 	sessions := append(parseLastSessions(sections.Last, cfg.Until), parseWhoSessions(sections.Who, cfg.Until)...)
 	evidence := append(parseJournalEvidence(sections.Journal, cfg.Since, cfg.Until), parseAuthEvidence(sections.AuthLog, cfg.Since, cfg.Until)...)
+	commands := append(
+		parseHistoryEvents(sections.History, cfg.Since, cfg.Until, loginAccounts),
+		parseTmuxEvents(sections.Tmux, cfg.Since, cfg.Until, loginAccounts)...,
+	)
 	sessions = filterSessionsByAccounts(sessions, loginAccounts)
 	evidence = filterEvidenceByAccounts(evidence, loginAccounts)
 
 	byUser := map[string]*aggregate{}
 	sessionCoverage := map[string][]sessionWindow{}
+	commandCoverage := map[string][]commandEvent{}
 	for _, session := range sessions {
 		user := normalizeUser(session.User)
 		if user == "" {
@@ -107,10 +131,19 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 		agg.sources[session.Source] = struct{}{}
 		sessionCoverage[user] = append(sessionCoverage[user], session)
 	}
+	for _, item := range commands {
+		user := normalizeUser(item.User)
+		if user == "" {
+			continue
+		}
+		commandCoverage[user] = append(commandCoverage[user], item)
+	}
 
+	mergedSessionCoverage := map[string][]sessionWindow{}
 	for user, windows := range sessionCoverage {
 		agg := ensureAggregate(byUser, user)
 		merged := mergeSessionWindows(windows)
+		mergedSessionCoverage[user] = merged
 		for _, window := range merged {
 			segments := timewindow.Segments(window.Started, window.Ended, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes, cfg.Location)
 			for _, segment := range segments {
@@ -137,6 +170,32 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 		agg.openSessions = countOpenSessions(merged)
 	}
 
+	for user, events := range commandCoverage {
+		agg := ensureAggregate(byUser, user)
+		confirmedEvents := filterEventsWithinSessions(events, mergedSessionCoverage[user])
+		agg.commandCount = len(confirmedEvents)
+		for _, item := range confirmedEvents {
+			agg.sources[item.Source] = struct{}{}
+			updateSeen(agg, item.At)
+			agg.actions = append(agg.actions, model.LinuxAuditAction{
+				At:       formatTime(item.At),
+				Category: item.Category,
+				Summary:  summarizeCommand(item.Command),
+				Source:   item.Source,
+				Paths:    append([]string(nil), item.Paths...),
+			})
+		}
+		agg.commandMinutes, agg.commandWindows = buildTimedIntervals(confirmedEvents, cfg)
+
+		codingEvents := filterEventsByCategory(confirmedEvents, actionCategoryCoding)
+		configEvents := filterEventsByCategory(confirmedEvents, actionCategoryConfig)
+
+		agg.codingCount = len(codingEvents)
+		agg.configCount = len(configEvents)
+		agg.codingMinutes, agg.codingWindows = buildTimedIntervals(codingEvents, cfg)
+		agg.configMinutes, agg.configWindows = buildTimedIntervals(configEvents, cfg)
+	}
+
 	for _, item := range evidence {
 		user := normalizeUser(item.User)
 		if user == "" {
@@ -155,9 +214,18 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 			User:           user,
 			SessionMinutes: agg.sessionMinutes,
 			SessionHuman:   humanMinutes(agg.sessionMinutes),
+			CommandMinutes: agg.commandMinutes,
+			CommandHuman:   humanMinutes(agg.commandMinutes),
+			CodingMinutes:  agg.codingMinutes,
+			CodingHuman:    humanMinutes(agg.codingMinutes),
+			ConfigMinutes:  agg.configMinutes,
+			ConfigHuman:    humanMinutes(agg.configMinutes),
 			OpenMinutes:    agg.openMinutes,
 			OpenHuman:      humanMinutes(agg.openMinutes),
 			SessionCount:   agg.sessionCount,
+			CommandCount:   agg.commandCount,
+			CodingCount:    agg.codingCount,
+			ConfigCount:    agg.configCount,
 			OpenSessions:   agg.openSessions,
 			EvidenceCount:  agg.evidenceCount,
 			SourceSummary:  joinSources(agg.sources),
@@ -165,6 +233,10 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 			LastSeen:       formatTime(agg.lastSeen),
 			HasSessions:    len(agg.intervals) > 0,
 			Intervals:      agg.intervals,
+			CommandWindows: agg.commandWindows,
+			CodingWindows:  agg.codingWindows,
+			ConfigWindows:  agg.configWindows,
+			Actions:        agg.actions,
 		})
 	}
 
@@ -363,14 +435,24 @@ func ensureAggregate(byUser map[string]*aggregate, user string) *aggregate {
 
 type aggregate struct {
 	sessionMinutes int64
+	commandMinutes int64
+	codingMinutes  int64
+	configMinutes  int64
 	openMinutes    int64
 	sessionCount   int
+	commandCount   int
+	codingCount    int
+	configCount    int
 	openSessions   int
 	evidenceCount  int
 	firstSeen      time.Time
 	lastSeen       time.Time
 	sources        map[string]struct{}
 	intervals      []model.LinuxAuditInterval
+	commandWindows []model.LinuxAuditInterval
+	codingWindows  []model.LinuxAuditInterval
+	configWindows  []model.LinuxAuditInterval
+	actions        []model.LinuxAuditAction
 }
 
 func updateSeen(agg *aggregate, moment time.Time) {
@@ -428,6 +510,144 @@ func mergeSessionWindows(windows []sessionWindow) []sessionWindow {
 	return merged
 }
 
+func buildCommandWindows(events []commandEvent) []sessionWindow {
+	if len(events) == 0 {
+		return nil
+	}
+
+	sorted := append([]commandEvent(nil), events...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].At.Equal(sorted[j].At) {
+			return sorted[i].Source < sorted[j].Source
+		}
+		return sorted[i].At.Before(sorted[j].At)
+	})
+
+	current := sessionWindow{
+		User:    sorted[0].User,
+		Started: sorted[0].At,
+		Ended:   sorted[0].At.Add(commandPointWindow),
+		Source:  sorted[0].Source,
+	}
+	var windows []sessionWindow
+	for _, item := range sorted[1:] {
+		eventEnd := item.At.Add(commandPointWindow)
+		if item.At.Sub(current.Ended) <= commandActivityGap {
+			if eventEnd.After(current.Ended) {
+				current.Ended = eventEnd
+			}
+			current.Source = joinWindowSources(current.Source, item.Source)
+			continue
+		}
+		windows = append(windows, current)
+		current = sessionWindow{
+			User:    item.User,
+			Started: item.At,
+			Ended:   eventEnd,
+			Source:  item.Source,
+		}
+	}
+	windows = append(windows, current)
+	return windows
+}
+
+func filterEventsWithinSessions(events []commandEvent, bounds []sessionWindow) []commandEvent {
+	if len(events) == 0 || len(bounds) == 0 {
+		return nil
+	}
+	var filtered []commandEvent
+	for _, item := range events {
+		for _, bound := range bounds {
+			if item.At.Before(bound.Started) || item.At.After(bound.Ended) {
+				continue
+			}
+			filtered = append(filtered, item)
+			break
+		}
+	}
+	return filtered
+}
+
+func filterEventsByCategory(events []commandEvent, category string) []commandEvent {
+	if len(events) == 0 {
+		return nil
+	}
+	var filtered []commandEvent
+	for _, item := range events {
+		if item.Category != category {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
+func buildTimedIntervals(events []commandEvent, cfg model.Config) (int64, []model.LinuxAuditInterval) {
+	windows := buildCommandWindows(events)
+	if len(windows) == 0 {
+		return 0, nil
+	}
+	var totalMinutes int64
+	var intervals []model.LinuxAuditInterval
+	for _, window := range windows {
+		segments := timewindow.Segments(window.Started, window.Ended, cfg.Since, cfg.Until, cfg.DayStartMinutes, cfg.DayEndMinutes, cfg.Location)
+		for _, segment := range segments {
+			minutes := int64(segment.End.Sub(segment.Start) / time.Minute)
+			if minutes <= 0 {
+				continue
+			}
+			totalMinutes += minutes
+			intervals = append(intervals, model.LinuxAuditInterval{
+				StartedAt:       formatTime(segment.Start),
+				EndedAt:         formatTime(segment.End),
+				DurationMinutes: minutes,
+				DurationHuman:   humanMinutes(minutes),
+				Open:            false,
+				SourceSummary:   strings.ReplaceAll(window.Source, ",", ", "),
+			})
+		}
+	}
+	return totalMinutes, intervals
+}
+
+func intersectSessionWindows(windows []sessionWindow, bounds []sessionWindow) []sessionWindow {
+	if len(windows) == 0 || len(bounds) == 0 {
+		return nil
+	}
+
+	var intersections []sessionWindow
+	for _, left := range windows {
+		for _, right := range bounds {
+			start := maxTime(left.Started, right.Started)
+			end := minTime(left.Ended, right.Ended)
+			if !end.After(start) {
+				continue
+			}
+			intersections = append(intersections, sessionWindow{
+				User:    left.User,
+				Started: start,
+				Ended:   end,
+				Source:  joinWindowSources(left.Source, right.Source),
+			})
+		}
+	}
+	return mergeSessionWindows(intersections)
+}
+
+func minTime(left time.Time, right time.Time) time.Time {
+	if left.Before(right) {
+		return left
+	}
+	return right
+}
+
+func maxTime(left time.Time, right time.Time) time.Time {
+	if left.After(right) {
+		return left
+	}
+	return right
+}
+
 func countOpenSessions(windows []sessionWindow) int {
 	count := 0
 	for _, window := range windows {
@@ -436,6 +656,18 @@ func countOpenSessions(windows []sessionWindow) int {
 		}
 	}
 	return count
+}
+
+func summarizeCommand(command string) string {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return "activity"
+	}
+	const maxLen = 160
+	if len(command) <= maxLen {
+		return command
+	}
+	return strings.TrimSpace(command[:maxLen-3]) + "..."
 }
 
 func joinWindowSources(left string, right string) string {
@@ -490,6 +722,9 @@ func detectWarnings(sections sectionedOutput) []string {
 	}
 	if len(sections.Journal) == 0 && len(sections.AuthLog) == 0 {
 		warnings = append(warnings, "no journalctl/auth log evidence collected")
+	}
+	if len(sections.History) == 0 && len(sections.Tmux) == 0 {
+		warnings = append(warnings, "no readable shell history or tmux data collected")
 	}
 	return warnings
 }

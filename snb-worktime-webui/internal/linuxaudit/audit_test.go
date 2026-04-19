@@ -9,9 +9,61 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 )
+
+func TestBuildCommandWindowsClustersNearbyCommands(t *testing.T) {
+	events := []commandEvent{
+		{User: "igor", At: time.Date(2026, 4, 19, 9, 0, 0, 0, time.UTC), Source: "bash_history"},
+		{User: "igor", At: time.Date(2026, 4, 19, 9, 8, 0, 0, time.UTC), Source: "bash_history"},
+		{User: "igor", At: time.Date(2026, 4, 19, 9, 40, 0, 0, time.UTC), Source: "zsh_history"},
+	}
+
+	windows := buildCommandWindows(events)
+	if len(windows) != 2 {
+		t.Fatalf("expected 2 command windows, got %d: %+v", len(windows), windows)
+	}
+	if !windows[0].Started.Equal(time.Date(2026, 4, 19, 9, 0, 0, 0, time.UTC)) || !windows[0].Ended.Equal(time.Date(2026, 4, 19, 9, 9, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected first window: %+v", windows[0])
+	}
+}
+
+func TestIntersectSessionWindowsRestrictsCommandActivityToSessions(t *testing.T) {
+	commandWindows := []sessionWindow{
+		{User: "igor", Started: time.Date(2026, 4, 19, 9, 0, 0, 0, time.UTC), Ended: time.Date(2026, 4, 19, 9, 20, 0, 0, time.UTC), Source: "bash_history"},
+	}
+	sessions := []sessionWindow{
+		{User: "igor", Started: time.Date(2026, 4, 19, 9, 10, 0, 0, time.UTC), Ended: time.Date(2026, 4, 19, 9, 30, 0, 0, time.UTC), Source: "who"},
+	}
+
+	intersections := intersectSessionWindows(commandWindows, sessions)
+	if len(intersections) != 1 {
+		t.Fatalf("expected 1 intersection, got %d: %+v", len(intersections), intersections)
+	}
+	if !intersections[0].Started.Equal(time.Date(2026, 4, 19, 9, 10, 0, 0, time.UTC)) || !intersections[0].Ended.Equal(time.Date(2026, 4, 19, 9, 20, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected intersection: %+v", intersections[0])
+	}
+}
+
+func TestFilterEventsWithinSessionsDropsUnconfirmedEvents(t *testing.T) {
+	events := []commandEvent{
+		{User: "igor", At: time.Date(2026, 4, 19, 8, 59, 0, 0, time.UTC), Source: "bash_history", Command: "ls", Category: actionCategoryShell},
+		{User: "igor", At: time.Date(2026, 4, 19, 9, 5, 0, 0, time.UTC), Source: "bash_history", Command: "git status", Category: actionCategoryCoding},
+	}
+	sessions := []sessionWindow{
+		{User: "igor", Started: time.Date(2026, 4, 19, 9, 0, 0, 0, time.UTC), Ended: time.Date(2026, 4, 19, 9, 30, 0, 0, time.UTC), Source: "who"},
+	}
+
+	filtered := filterEventsWithinSessions(events, sessions)
+	if len(filtered) != 1 {
+		t.Fatalf("expected 1 confirmed event, got %d: %+v", len(filtered), filtered)
+	}
+	if filtered[0].Command != "git status" {
+		t.Fatalf("unexpected confirmed event: %+v", filtered[0])
+	}
+}
 
 func TestHostKeyCallbackAcceptsAndPersistsNewKey(t *testing.T) {
 	t.Parallel()

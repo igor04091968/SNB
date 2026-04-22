@@ -1,1 +1,1 @@
-e1ade3b464d9f036750e2517ba96d73b8c57faf2848c63bf1d08558247189c27  snb-worktime-webui_build_2026-04-22.zip
+3f1e500ac301b75996eb9e11086cbaac03d18491d86e5bd0eb943acb8fecf593  snb-worktime-webui_build_2026-04-22.zip

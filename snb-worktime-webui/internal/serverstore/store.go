@@ -73,6 +73,7 @@ func (s *Store) Upsert(server model.LinuxServer) (model.LinuxServer, error) {
 			if servers[index].ID != server.ID {
 				continue
 			}
+			preserveSecretFields(&server, servers[index])
 			server.CreatedAt = servers[index].CreatedAt
 			server.UpdatedAt = now
 			servers[index] = server
@@ -90,6 +91,21 @@ func (s *Store) Upsert(server model.LinuxServer) (model.LinuxServer, error) {
 		return model.LinuxServer{}, err
 	}
 	return sanitizeOne(server), nil
+}
+
+func preserveSecretFields(next *model.LinuxServer, existing model.LinuxServer) {
+	if next == nil {
+		return
+	}
+	if strings.TrimSpace(next.Password) == "" {
+		next.Password = existing.Password
+	}
+	if strings.TrimSpace(next.PrivateKeyPEM) == "" {
+		next.PrivateKeyPEM = existing.PrivateKeyPEM
+	}
+	if strings.TrimSpace(next.PrivateKeyPassphrase) == "" {
+		next.PrivateKeyPassphrase = existing.PrivateKeyPassphrase
+	}
 }
 
 func (s *Store) Delete(id string) error {

@@ -115,6 +115,7 @@ func auditServer(server model.LinuxServer, cfg model.Config) ([]model.LinuxAudit
 		parseHistoryEvents(sections.History, cfg.Since, cfg.Until, loginAccounts),
 		parseTmuxEvents(sections.Tmux, cfg.Since, cfg.Until, loginAccounts)...,
 	)
+	commands = append(commands, parseSudoCommandEvents(sections.Journal, sections.AuthLog, cfg.Since, cfg.Until, loginAccounts)...)
 	sessions = filterSessionsByAccounts(sessions, loginAccounts)
 	evidence = filterEvidenceByAccounts(evidence, loginAccounts)
 

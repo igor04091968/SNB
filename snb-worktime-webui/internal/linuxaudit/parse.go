@@ -2,6 +2,7 @@ package linuxaudit
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -15,6 +16,7 @@ var (
 	authTimePattern    = regexp.MustCompile(`^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}`)
 	bashEpochPattern   = regexp.MustCompile(`^#(\d{9,})$`)
 	zshHistoryPattern  = regexp.MustCompile(`^: (\d{9,}):\d+;(.*)$`)
+	sudoCommandPattern = regexp.MustCompile(`\bsudo(?:\[\d+\])?:\s+([A-Za-z0-9._-]+)\s*:\s+.*?COMMAND=(.+)$`)
 	userPatterns       = []*regexp.Regexp{
 		regexp.MustCompile(`Accepted \S+ for ([A-Za-z0-9._-]+)`),
 		regexp.MustCompile(`session opened for user ([A-Za-z0-9._-]+)`),
@@ -271,18 +273,7 @@ func parseJournalEvidence(lines []string, since time.Time, until time.Time) []ev
 }
 
 func parseAuthEvidence(lines []string, since time.Time, until time.Time) []evidenceEvent {
-	return parseEvidence(lines, since, until, "authlog", func(line string) (time.Time, bool) {
-		match := authTimePattern.FindString(line)
-		if match == "" {
-			return time.Time{}, false
-		}
-		parsed, err := time.ParseInLocation("Jan 2 15:04:05", match, time.Local)
-		if err != nil {
-			return time.Time{}, false
-		}
-		parsed = parsed.AddDate(since.Year()-parsed.Year(), 0, 0)
-		return parsed.UTC(), true
-	})
+	return parseEvidence(lines, since, until, "authlog", parseAuthTimestamp(since))
 }
 
 func parseHistoryEvents(lines []string, since time.Time, until time.Time, accounts map[string]loginAccount) []commandEvent {
@@ -491,6 +482,100 @@ func parseTmuxLine(user string, line string) []commandEvent {
 	return events
 }
 
+func parseSudoCommandEvents(journal []string, authlog []string, since time.Time, until time.Time, accounts map[string]loginAccount) []commandEvent {
+	if len(accounts) == 0 {
+		return nil
+	}
+
+	var events []commandEvent
+	events = append(events, parseSudoLines(journal, since, until, "sudo_journal", accounts, parseJournalTimestamp)...)
+	events = append(events, parseSudoLines(authlog, since, until, "sudo_authlog", accounts, parseAuthTimestamp(since))...)
+
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].At.Equal(events[j].At) {
+			if events[i].User == events[j].User {
+				return events[i].Source < events[j].Source
+			}
+			return events[i].User < events[j].User
+		}
+		return events[i].At.Before(events[j].At)
+	})
+
+	return events
+}
+
+func parseSudoLines(lines []string, since time.Time, until time.Time, source string, accounts map[string]loginAccount, parseTime func(string) (time.Time, bool)) []commandEvent {
+	if len(lines) == 0 {
+		return nil
+	}
+
+	var events []commandEvent
+	for _, raw := range lines {
+		line := strings.TrimRight(raw, "\r")
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(line, "FILE:") {
+			continue
+		}
+		match := sudoCommandPattern.FindStringSubmatch(line)
+		if len(match) < 3 {
+			continue
+		}
+		user := normalizeUser(match[1])
+		if _, ok := accounts[user]; !ok {
+			continue
+		}
+		command := strings.TrimSpace(match[2])
+		if command == "" {
+			continue
+		}
+		timestamp, ok := parseTime(line)
+		if !ok {
+			continue
+		}
+		if timestamp.Before(since) || timestamp.After(until) {
+			continue
+		}
+		category, paths := classifyCommand(command)
+		events = append(events, commandEvent{
+			User:     user,
+			At:       timestamp,
+			Source:   source,
+			Command:  command,
+			Category: category,
+			Paths:    paths,
+		})
+	}
+	return events
+}
+
+func parseJournalTimestamp(line string) (time.Time, bool) {
+	match := journalTimePattern.FindString(line)
+	if match == "" {
+		return time.Time{}, false
+	}
+	parsed, err := time.Parse(time.RFC3339, match)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed.UTC(), true
+}
+
+func parseAuthTimestamp(anchor time.Time) func(string) (time.Time, bool) {
+	return func(line string) (time.Time, bool) {
+		match := authTimePattern.FindString(line)
+		if match == "" {
+			return time.Time{}, false
+		}
+		parsed, err := time.ParseInLocation("Jan 2 15:04:05", match, time.Local)
+		if err != nil {
+			return time.Time{}, false
+		}
+
+		anchorLocal := anchor.In(time.Local)
+		parsed = time.Date(anchorLocal.Year(), parsed.Month(), parsed.Day(), parsed.Hour(), parsed.Minute(), parsed.Second(), 0, time.Local)
+		return parsed.UTC(), true
+	}
+}
+
 const (
 	actionCategoryShell  = "shell"
 	actionCategoryCoding = "coding"
@@ -515,46 +600,57 @@ func classifyCommand(command string) (string, []string) {
 	return actionCategoryShell, paths
 }
 
-func isCodingCommand(lower string, paths []string) bool {
-	codingPrefixes := []string{
-		"git ", "go ", "npm ", "yarn ", "pnpm ", "make ", "cmake ", "cargo ",
-		"pytest", "python ", "python3 ", "pip ", "pip3 ", "node ", "npx ",
-		"composer ", "bundle ", "gradle ", "mvn ", "javac ", "gcc ", "g++ ",
-		"clang ", "clang++ ", "rustc ", "phpunit", "rails ", "mix ", "deno ",
+func commandBasename(lower string) string {
+	fields := strings.Fields(strings.TrimSpace(lower))
+	if len(fields) == 0 {
+		return ""
 	}
-	for _, prefix := range codingPrefixes {
-		if strings.HasPrefix(lower, prefix) {
-			return true
-		}
+	return filepath.Base(fields[0])
+}
+
+func isCodingCommand(lower string, paths []string) bool {
+	base := commandBasename(lower)
+
+	codingNames := map[string]struct{}{
+		"git": {}, "go": {}, "npm": {}, "yarn": {}, "pnpm": {}, "make": {}, "cmake": {}, "cargo": {},
+		"pytest": {}, "python": {}, "python3": {}, "pip": {}, "pip3": {}, "node": {}, "npx": {},
+		"composer": {}, "bundle": {}, "gradle": {}, "mvn": {}, "javac": {}, "gcc": {}, "g++": {},
+		"clang": {}, "clang++": {}, "rustc": {}, "phpunit": {}, "rails": {}, "mix": {}, "deno": {},
+	}
+	if _, ok := codingNames[base]; ok {
+		return true
 	}
 
-	editorPrefixes := []string{"vim ", "vi ", "nvim ", "nano ", "emacs ", "code ", "sed -i", "tee ", "cat >"}
-	for _, prefix := range editorPrefixes {
-		if strings.HasPrefix(lower, prefix) && hasCodePath(paths) {
-			return true
-		}
+	editorNames := map[string]struct{}{
+		"vim": {}, "vi": {}, "nvim": {}, "nano": {}, "emacs": {}, "code": {}, "tee": {}, "cat": {}, "sed": {},
+	}
+	if _, ok := editorNames[base]; ok && hasCodePath(paths) {
+		return true
 	}
 
 	return hasCodePath(paths)
 }
 
 func isConfigCommand(lower string, paths []string) bool {
-	configPrefixes := []string{
-		"systemctl ", "service ", "nginx ", "apachectl ", "httpd ", "a2en", "a2dis",
-		"asterisk ", "fwconsole ", "supervisorctl ", "netplan ", "ufw ", "iptables ",
-		"firewall-cmd ", "crontab ", "visudo", "sudoedit ", "sysctl ",
+	base := commandBasename(lower)
+
+	configNames := map[string]struct{}{
+		"systemctl": {}, "service": {}, "nginx": {}, "apachectl": {}, "httpd": {},
+		"asterisk": {}, "fwconsole": {}, "supervisorctl": {}, "netplan": {}, "ufw": {}, "iptables": {},
+		"firewall-cmd": {}, "crontab": {}, "visudo": {}, "sudoedit": {}, "sysctl": {},
 	}
-	for _, prefix := range configPrefixes {
-		if strings.HasPrefix(lower, prefix) {
-			return true
-		}
+	if _, ok := configNames[base]; ok {
+		return true
+	}
+	if strings.HasPrefix(base, "a2en") || strings.HasPrefix(base, "a2dis") {
+		return true
 	}
 
-	editorPrefixes := []string{"vim ", "vi ", "nvim ", "nano ", "emacs ", "sed -i", "tee ", "cat >"}
-	for _, prefix := range editorPrefixes {
-		if strings.HasPrefix(lower, prefix) && hasConfigPath(paths) {
-			return true
-		}
+	editorNames := map[string]struct{}{
+		"vim": {}, "vi": {}, "nvim": {}, "nano": {}, "emacs": {}, "tee": {}, "cat": {}, "sed": {},
+	}
+	if _, ok := editorNames[base]; ok && hasConfigPath(paths) {
+		return true
 	}
 
 	return hasConfigPath(paths)

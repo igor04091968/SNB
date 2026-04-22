@@ -170,3 +170,49 @@ func TestClassifyCommandDistinguishesCodingAndConfig(t *testing.T) {
 		t.Fatalf("unexpected coding paths: %+v", paths)
 	}
 }
+
+func TestClassifyCommandRecognizesAbsoluteBinaryPaths(t *testing.T) {
+	category, _ := classifyCommand("/usr/bin/systemctl restart nginx")
+	if category != actionCategoryConfig {
+		t.Fatalf("expected config category, got %q", category)
+	}
+
+	category, _ = classifyCommand("/usr/bin/git status")
+	if category != actionCategoryCoding {
+		t.Fatalf("expected coding category, got %q", category)
+	}
+}
+
+func TestParseSudoCommandEventsExtractsCommandsFromJournalAndAuthlog(t *testing.T) {
+	// auth.log timestamps are in server local time; cfg.Since/Until are stored in UTC but derived from time.Local.
+	sinceLocal := time.Date(2026, 4, 19, 8, 0, 0, 0, time.Local)
+	untilLocal := time.Date(2026, 4, 19, 12, 0, 0, 0, time.Local)
+	since := sinceLocal.UTC()
+	until := untilLocal.UTC()
+	accounts := map[string]loginAccount{
+		"alice": {User: "alice", UID: 1000, Home: "/home/alice", Shell: "/bin/bash"},
+	}
+	journal := []string{
+		"2026-04-19T09:20:00+03:00 srv sudo[123]:  alice : TTY=pts/0 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/systemctl status nginx",
+	}
+	authlog := []string{
+		"Apr 19 09:30:00 srv sudo: alice : TTY=pts/0 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/git status",
+	}
+
+	events := parseSudoCommandEvents(journal, authlog, since, until, accounts)
+	if len(events) != 2 {
+		t.Fatalf("expected 2 sudo events, got %d: %+v", len(events), events)
+	}
+	if events[0].User != "alice" || events[1].User != "alice" {
+		t.Fatalf("unexpected sudo users: %+v", events)
+	}
+	if events[0].Source != "sudo_journal" || events[1].Source != "sudo_authlog" {
+		t.Fatalf("unexpected sudo sources: %+v", events)
+	}
+	if events[0].Category != actionCategoryConfig {
+		t.Fatalf("unexpected sudo journal category: %+v", events[0])
+	}
+	if events[1].Category != actionCategoryCoding {
+		t.Fatalf("unexpected sudo authlog category: %+v", events[1])
+	}
+}

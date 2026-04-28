@@ -9,6 +9,9 @@
 !.codex/skills/snb-worktime-webui/**
 !snb-worktime-webui/
 !snb-worktime-webui/**
+!ATS/
+ATS/*
+!ATS/86_LIVE_SCHEDULE_COMPACTING_2026-04-28.md
 snb-locations-feed/**/__pycache__/
 snb-locations-feed/**/*.pyc
 snb-worktime-webui/dist/
